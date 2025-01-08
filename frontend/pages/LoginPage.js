@@ -34,7 +34,9 @@ export default {
         if (res.ok) {
           console.log("Login successful");
           const data = await res.json();
-          console.log(data);
+          localStorage.setItem("user", JSON.stringify(data));
+          this.$store.commit("setUser");
+          this.$router.push("/services");
         } else {
           console.error("Login failed:", res.statusText);
         }
