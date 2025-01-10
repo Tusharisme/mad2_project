@@ -4,7 +4,7 @@ from flask import current_app as app, request, jsonify
 from flask_security import auth_required, hash_password
 
 api = Api(prefix='/api')
-
+cache=app.cache
 # Define the fields for marshalling the Customer data
 customer_fields = {
     'id': fields.Integer,
@@ -50,8 +50,9 @@ service_fields = {
 }
 
 class CustomerResource(Resource):
-    @marshal_with(customer_fields)
     @auth_required('token')
+    @cache.memoize()
+    @marshal_with(customer_fields)
     def get(self, customer_id):
         try:
             customer = Customer.query.get_or_404(customer_id)
@@ -71,8 +72,9 @@ class CustomerResource(Resource):
             return {'message': str(e)}, 500
 
 class ServiceProfessionalResource(Resource):
-    @marshal_with(service_professional_fields)
     @auth_required('token')
+    @cache.memoize()
+    @marshal_with(service_professional_fields)
     def get(self, professional_id):
         try:
             professional = ServiceProfessional.query.get_or_404(professional_id)
@@ -141,8 +143,8 @@ class AllCustomersResource(Resource):
             return {'message': str(e)}, 500
 
 class AllServiceProfessionalsResource(Resource):
-    @marshal_with(service_professional_fields)
     @auth_required('token')
+    @marshal_with(service_professional_fields)
     def get(self):
         try:
             professionals = ServiceProfessional.query.all()
@@ -195,6 +197,8 @@ class AllServiceProfessionalsResource(Resource):
 
 class AllServicesResource(Resource):
     @marshal_with(service_fields)
+    @cache.cached()
+
     def get(self):
         try:
             services = Service.query.all()
@@ -204,6 +208,8 @@ class AllServicesResource(Resource):
         
 class ServiceResource(Resource):
     @marshal_with(service_fields)
+    @cache.memoize()
+
     def get(self, service_id):
         try:
             service = Service.query.get_or_404(service_id)
