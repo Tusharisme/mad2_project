@@ -1,12 +1,13 @@
 from datetime import datetime
-from flask import current_app as app, jsonify, render_template, request,send_file
+import cloudinary
+from flask import current_app as app, jsonify, render_template, request, send_file
 from flask_login import login_user
-from flask_security import auth_required,verify_password,hash_password
-from backend.models import db
-datastore=app.security.datastore
-cache=app.cache
+from flask_security import auth_required, verify_password, hash_password
+from backend.models import Customer, ServiceProfessional, db
+datastore = app.security.datastore
+cache = app.cache
 from backend.models import User
-from backend.celery.tasks import add,create_csv
+from backend.celery.tasks import add, create_csv
 from celery.result import AsyncResult
 
 @app.get('/')
@@ -15,66 +16,174 @@ def home():
 
 @app.get("/celery")
 def celery():
-    task=add.delay(1,2)
-    return jsonify({"task_id":task.id})
+    task = add.delay(1, 2)
+    return jsonify({"task_id": task.id})
 
 @app.get("/celery/<task_id>")
 def celery_result(task_id):
-    task=add.AsyncResult(task_id)
-    return jsonify({"task_status":task.status,"task_result":task.result})
+    task = add.AsyncResult(task_id)
+    return jsonify({"task_status": task.status, "task_result": task.result})
+
 @app.get("/create_csv")
 def get_create_csv():
-    task=create_csv.delay()
-    return jsonify({"task_id":task.id}),200
+    task = create_csv.delay()
+    return jsonify({"task_id": task.id}), 200
 
 @app.get("/get_csv/<task_id>")
 def get_csv(task_id):
-    task=AsyncResult(task_id)
-    if task.status=="SUCCESS":
-        return send_file(task.result,as_attachment=True)
-    return jsonify({"task_status":task.status}),200
+    task = AsyncResult(task_id)
+    if task.status == "SUCCESS":
+        return send_file(task.result, as_attachment=True)
+    return jsonify({"task_status": task.status}), 200
 
 @app.get("/cache")
 @cache.cached(timeout=5)
 def cache():
-    return {"date":str(datetime.now())}
+    return {"date": str(datetime.now())}
 
 @app.get("/protected")
 @auth_required("token")
 def protected():
     return "You are in a protected route"
 
-@app.route("/login",methods=['POST'])
+@app.route("/login", methods=['POST'])
 def login():
-    data=request.get_json() # getting the data from the request body and converting it to json
-    email=data.get('email')
-    password=data.get('password')
-    user=datastore.find_user(email=email) # finding the user by email
+    data = request.get_json()  # getting the data from the request body and converting it to json
+    email = data.get('email')
+    password = data.get('password')
+    user = datastore.find_user(email=email)  # finding the user by email
     if not email or not password:
-        return jsonify({'message':'Email and password are required'}),404
+        return jsonify({'message': 'Email and password are required'}), 404
     if user is None:
-        return jsonify({'message':'User not found'}),404
-    if verify_password(password,user.password):
-        return jsonify({"token":user.get_auth_token(),"email":user.email,"role":user.roles[0].name,"id":user.id}),200
-    return jsonify({'message':'Invalid credentials'}),404
+        return jsonify({'message': 'User not found'}), 404
+    if verify_password(password, user.password):
+        return jsonify({"token": user.get_auth_token(), "email": user.email, "role": user.roles[0].name, "id": user.id}), 200
+    return jsonify({'message': 'Invalid credentials'}), 404
 
-@app.route("/register",methods=['POST'])
-def register():
-    data=request.get_json()
-    email=data.get('email')
-    password=data.get('password')
-    username=data.get('username')
-    role=data.get('role')
-    
-    user=datastore.find_user(email=email)
-    if user :
-        return jsonify({'message':'User already exists'}),404
-    if not email or not password or role not in ['admin','user']:
-        return jsonify({'message':'Email and password are required'}),404
+@app.route("/register_customer", methods=['POST'])
+def register_customer():
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+    username = data.get('username')
+    name = data.get('full_name')
+    phone_no = data.get('phone_no')
+    gender = data.get('gender')
+    address = data.get('address')
+    pin_code = data.get('pin_code')
+    role = data.get('role')
+
+    # Validate input fields
+    if not email or not password or role != 'customer':
+        return jsonify({'message': 'Email, password, and the role "customer" are required'}), 400
+    if not name or not phone_no or not gender or not address or not pin_code:
+        return jsonify({'message': 'Full name, phone number, gender, address, and pin code are required'}), 400
+
+    # Check if the user already exists
+    user = datastore.find_user(email=email)
+    if user:
+        return jsonify({'message': 'User already exists'}), 400
+
+    # Create the customer user
     try:
-        datastore.create_user(email=email,password=hash_password(password),username=username,roles=[role])
+        new_user = datastore.create_user(
+            email=email,
+            password=hash_password(password),
+            username=username,
+            roles=['customer']
+        )
+        db.session.add(new_user)
         db.session.commit()
-        return jsonify({'message':'User got created'}),200
+
+        # Add additional details in the Customer table
+        customer = Customer(
+            user_id=new_user.id,
+            name=name,
+            phone_no=phone_no,
+            gender=gender,
+            address=address,
+            pin_code=pin_code,
+            email=email
+        )
+        db.session.add(customer)
+        db.session.commit()
+
+        return jsonify({'message': 'Customer successfully registered'}), 201
     except Exception as e:
-        db.session.rollback() # rollback the session if any error occurs while creating the user 
-        return jsonify({'message':str(e)}),404
+        db.session.rollback()
+        return jsonify({'message': str(e)}), 500
+
+@app.route("/register_professional", methods=['POST'])
+def register_professional():
+    try:
+        # Parse form data
+        email = request.form.get('email')
+        password = request.form.get('pwd')  # Match frontend field names
+        username = request.form.get('uname')  # Match frontend field names
+        name = request.form.get('full_name')
+        phone_no = request.form.get('phone_no')
+        gender = request.form.get('gender')
+        address = request.form.get('address')
+        pin_code = request.form.get('pin_code')
+        service_type = request.form.get('service_type')
+        experience = request.form.get('experience')
+        role = request.form.get('role')
+        document = request.files.get('document')  # Professional document
+
+        # Validate input fields
+        if not email or not password or role != 'professional':
+            return jsonify({'message': 'Email, password, and the role "professional" are required'}), 400
+        if not name or not phone_no or not gender or not address or not pin_code or not service_type or not experience:
+            return jsonify({'message': 'All fields are required'}), 400
+        if not document:
+            return jsonify({'message': 'Document upload is required'}), 400
+
+        # Check if the user already exists
+        user = datastore.find_user(email=email)
+        if user:
+            return jsonify({'message': 'User already exists'}), 400
+
+        # Upload the document to Cloudinary
+        try:
+            document_result = cloudinary.uploader.upload(
+                document,
+                resource_type="auto",
+                folder="professional_documents"
+            )
+            document_url = document_result['url']
+            print("Document uploaded to Cloudinary:", document_url)  # Check if upload was successful
+        except Exception as cloudinary_error:
+            print("Error uploading document to Cloudinary:", cloudinary_error)
+            return jsonify({'message': 'Failed to upload document to Cloudinary'}), 500
+
+        # Create the professional user
+        new_user = datastore.create_user(
+            email=email,
+            password=hash_password(password),
+            username=username,
+            roles=['professional']
+        )
+        db.session.add(new_user)
+        db.session.commit()
+
+        # Add additional details in the ServiceProfessional table
+        professional = ServiceProfessional(
+            user_id=new_user.id,
+            name=name,
+            phone_no=phone_no,
+            gender=gender,
+            address=address,
+            pin_code=pin_code,
+            email=email,
+            service_type=service_type,
+            experience=experience,
+            document_url=document_url
+        )
+        db.session.add(professional)
+        db.session.commit()
+
+        return jsonify({'message': 'Professional successfully registered'}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': str(e)}), 500

@@ -9,11 +9,13 @@ import Services from "../pages/Services.js";
 import ServiceDetail from "../pages/ServiceDetail.js";
 import AdminDashboardPage from "../pages/AdminDashboardPage.js";
 import store from "./store.js";
+import ProfRegisterPage from "../pages/ProfRegisterPage.js";
 
 const routes = [
   { path: "/", component: Home },
   { path: "/login", component: LoginPage },
-  { path: "/register", component: RegisterPage },
+  { path: "/register_customer", component: RegisterPage },
+  { path: "/register_professional", component: ProfRegisterPage },
   { path: "/services", component: Services, meta: { requiresLogin: true } },
   {
     path: "/services/:id",

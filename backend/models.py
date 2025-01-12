@@ -219,6 +219,8 @@ class Customer(db.Model):
     profile_pic = db.Column(db.String(255), nullable=True)
     average_rating = db.Column(db.Float, nullable=True)
     is_blocked = db.Column(db.Boolean, default=False)
+    profile_picture_url = db.Column(db.String(500), nullable=True)  # Profile picture URL
+
 
     # Relationship back to User
     user = db.relationship("User", back_populates="customer")
@@ -239,7 +241,8 @@ class ServiceProfessional(db.Model):
     gender = db.Column(db.String(10), nullable=True)
     profile_pic = db.Column(db.String(255), nullable=True)
     average_rating = db.Column(db.Float, nullable=True)
-    document = db.Column(db.String(255), nullable=True)
+    document_url = db.Column(db.String(255), nullable=True)
+    profile_picture_url = db.Column(db.String(500), nullable=True)  # Profile picture URL
     block_status = db.Column(db.Boolean, default=False)
 
     # Relationship back to User
@@ -254,7 +257,7 @@ class Service(db.Model):
     base_price = db.Column(db.Integer, nullable=False)
     base_time_required = db.Column(db.String, nullable=True)
     description = db.Column(db.String, nullable=False)
-    service_pic = db.Column(db.String, nullable=True)
+    image_url = db.Column(db.String(500), nullable=True)  # Service image URL
 
     professional_services = db.relationship("ProfessionalService", back_populates="service")
 

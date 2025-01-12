@@ -76,7 +76,7 @@ def setup_roles_and_users(app):
                 base_price=100,
                 base_time_required="1 hour",
                 description="Basic plumbing services",
-                service_pic=None
+                image_url=None
             )
             db.session.add(plumbing_service)
 
@@ -86,7 +86,7 @@ def setup_roles_and_users(app):
                 base_price=150,
                 base_time_required="1.5 hours",
                 description="Basic electrical services",
-                service_pic=None
+                image_url=None
             )
             db.session.add(electrical_service)
 

@@ -1,37 +1,58 @@
 from flask import Flask
+from flask_login import login_required
 from backend.config import LocalDevelopmentConfig
-from backend.models import db,User,Role
-from flask_security import Security,SQLAlchemyUserDatastore,auth_required
-from backend.celery.celery_factory import celery_init_app
-
-from backend.create_initial_data import setup_roles_and_users
+from backend.models import db, User, Role
+from flask_security import Security, SQLAlchemyUserDatastore, auth_required
 from flask_caching import Cache
+from backend.celery.celery_factory import celery_init_app
+from backend.create_initial_data import setup_roles_and_users
 import flask_excel as excel
+import cloudinary
+import cloudinary.uploader
 
-def CreateApp():
-    app=Flask(__name__,template_folder="frontend",static_folder="frontend",static_url_path="/static") 
+
+def createApp():
+    app = Flask(__name__, template_folder='frontend', static_folder='frontend', static_url_path='/static')
+
     app.config.from_object(LocalDevelopmentConfig)
-    db.init_app(app) # initializing the app with db instance
-    cache=Cache(app) # initializing the app with cache instance
-    
-    datastore= SQLAlchemyUserDatastore(db,User,Role)
-    app.cache=cache
-    app.security=Security(app,datastore=datastore,register_blueprint=False) # initializing the app with Security instance and passing the app and datastore instance
-    app.app_context().push() # pushing the app context to the app instance 
-    # Create and populate the database
+     # model init
+    db.init_app(app)
+    # Cloudinary initialization
+    cloudinary.config(
+        cloud_name=app.config['CLOUDINARY_CLOUD_NAME'],
+        api_key=app.config['CLOUDINARY_API_KEY'],
+        api_secret=app.config['CLOUDINARY_API_SECRET']
+    )
+
+    # cache init
+    cache = Cache(app)
+
+
+    #flask security
+    datastore = SQLAlchemyUserDatastore(db, User, Role)
+    app.cache = cache
+
+    app.security = Security(app, datastore=datastore, register_blueprint=False)
+    app.app_context().push()
     setup_roles_and_users(app)
     from backend.resources import api
-    api.init_app(app) # initializing the app with flask_restful api instance
+    # flask-restful init
+    api.init_app(app)
 
     return app
 
-app=CreateApp()
-celery_app=celery_init_app(app)
+app = createApp()
+
+celery_app = celery_init_app(app)
 
 import backend.create_initial_data
 
 import backend.routes
 
-excel.init_excel(app) # initializing the app with excel instance
-if __name__=='__main__':
+# import backend.celery.celery_schedule
+
+excel.init_excel(app)
+
+if (__name__ == '__main__'):
+    # flask-excel
     app.run()

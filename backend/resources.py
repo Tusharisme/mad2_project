@@ -46,7 +46,7 @@ service_fields = {
     'base_price': fields.Integer,
     'base_time_required': fields.String,
     'description': fields.String,
-    'service_pic': fields.String,
+    'image_url': fields.String,
 }
 
 class CustomerResource(Resource):
@@ -216,6 +216,21 @@ class ServiceResource(Resource):
             return service
         except Exception as e:
             return {'message': str(e)}, 500
+
+class CheckUsernameAvailabilityResource(Resource):
+    def get(self, username):
+        try:
+            # Query the database to check if the username exists
+            user = User.query.filter_by(username=username).first()
+            if user:
+                return jsonify({"available": False, "message": "Username is already taken."})
+            else:
+                return jsonify({"available": True, "message": "Username is available."})
+        except Exception as e:
+            return jsonify({"message": str(e)}), 500
+
+# Add the new resource to the API
+api.add_resource(CheckUsernameAvailabilityResource, '/check-username/<string:username>')
 
 # Add the new resource to the API
 api.add_resource(ServiceResource, '/services/<int:service_id>')
