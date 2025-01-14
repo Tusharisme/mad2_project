@@ -60,7 +60,9 @@ export default {
           const data = await res.json();
           localStorage.setItem("user", JSON.stringify(data));
           this.$store.commit("setUser");
-          this.$router.push("/services");
+          this.$store.dispatch("updateLastActivity"); // Update the last activity timestamp on login
+          // this.$router.push("/services");
+          this.$router.push("/admin_dashboard");
         } else {
           const errorData = await res.json();
           this.error = errorData.message || "Login failed";

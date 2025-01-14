@@ -1,10 +1,10 @@
-  export default {
-    template: `
+export default {
+  template: `
       <div>
         <div class="header-section text-center">
-        <a class="navbar-brand" href="/" style="color: black;">
-        <h3 style="text-decoration: underline;">A to Z Household Services</h3>
-      </a>
+          <a class="navbar-brand" href="/" style="color: black;">
+          <h3 style="text-decoration: underline;">A to Z Household Services</h3>
+          </a>
         </div>
         <div id="panel">
           <div id="input-form">
@@ -102,108 +102,108 @@
         </div>
       </div>
     `,
-    data() {
-      return {
-        form: {
-          uname: "",
-          pwd: "",
-          full_name: "",
-          email: "",
-          phone_no: "",
-          gender: "",
-          experience: "",
-          address: "",
-          pin_code: "",
-          service_type: "",
-          document: null,
-          role: "professional",
-        },
-        availableServices: [], // Populate this dynamically or hard-code
-        usernameAvailable: null, // To track username availability
-        usernameMessage: "", // To show availability message
-        messages: [], // For displaying flash messages
-      };
+  data() {
+    return {
+      form: {
+        uname: "",
+        pwd: "",
+        full_name: "",
+        email: "",
+        phone_no: "",
+        gender: "",
+        experience: "",
+        address: "",
+        pin_code: "",
+        service_type: "",
+        document: null,
+        role: "professional",
+      },
+      availableServices: [], // Populate this dynamically or hard-code
+      usernameAvailable: null, // To track username availability
+      usernameMessage: "", // To show availability message
+      messages: [], // For displaying flash messages
+    };
+  },
+  created() {
+    this.fetchServices();
+  },
+  methods: {
+    handleFileUpload(event) {
+      this.form.document = event.target.files[0];
     },
-    created() {
-      this.fetchServices();
+    async registerProfessional() {
+      const form = this.$refs.form;
+
+      // Bootstrap validation
+      if (form.checkValidity() === false) {
+        form.classList.add("was-validated");
+        return;
+      }
+
+      try {
+        const formData = new FormData();
+        formData.append("uname", this.form.uname);
+        formData.append("pwd", this.form.pwd);
+        formData.append("full_name", this.form.full_name);
+        formData.append("email", this.form.email);
+        formData.append("phone_no", this.form.phone_no);
+        formData.append("gender", this.form.gender);
+        formData.append("experience", this.form.experience);
+        formData.append("address", this.form.address);
+        formData.append("pin_code", this.form.pin_code);
+        formData.append("service_type", this.form.service_type);
+        formData.append("document", this.form.document);
+        formData.append("role", this.form.role);
+
+        const res = await fetch(`${location.origin}/register_professional`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (res.ok) {
+          console.log("We are Registered as a Professional");
+          // Handle success (redirect or show success message)
+        } else {
+          const data = await res.json();
+          this.messages.push(data.message || "Registration failed.");
+        }
+      } catch (e) {
+        console.error("An error occurred:", e);
+        this.messages.push("An error occurred. Please try again later.");
+      }
     },
-    methods: {
-      handleFileUpload(event) {
-        this.form.document = event.target.files[0];
-      },
-      async registerProfessional() {
-        const form = this.$refs.form;
-
-        // Bootstrap validation
-        if (form.checkValidity() === false) {
-          form.classList.add("was-validated");
-          return;
+    async fetchServices() {
+      try {
+        const response = await fetch("/api/services");
+        if (response.ok) {
+          this.availableServices = await response.json();
+        } else {
+          console.error("Failed to fetch services");
         }
-
-        try {
-          const formData = new FormData();
-          formData.append("uname", this.form.uname);
-          formData.append("pwd", this.form.pwd);
-          formData.append("full_name", this.form.full_name);
-          formData.append("email", this.form.email);
-          formData.append("phone_no", this.form.phone_no);
-          formData.append("gender", this.form.gender);
-          formData.append("experience", this.form.experience);
-          formData.append("address", this.form.address);
-          formData.append("pin_code", this.form.pin_code);
-          formData.append("service_type", this.form.service_type);
-          formData.append("document", this.form.document);
-          formData.append("role", this.form.role);
-
-          const res = await fetch(`${location.origin}/register_professional`, {
-            method: "POST",
-            body: formData,
-          });
-
-          if (res.ok) {
-            console.log("We are Registered as a Professional");
-            // Handle success (redirect or show success message)
-          } else {
-            const data = await res.json();
-            this.messages.push(data.message || "Registration failed.");
-          }
-        } catch (e) {
-          console.error("An error occurred:", e);
-          this.messages.push("An error occurred. Please try again later.");
-        }
-      },
-      async fetchServices() {
-        try {
-          const response = await fetch("/api/services");
-          if (response.ok) {
-            this.availableServices = await response.json();
-          } else {
-            console.error("Failed to fetch services");
-          }
-        } catch (error) {
-          console.error("Error fetching services:", error);
-        }
-      },
-      async checkUsernameAvailability() {
-        try {
-          const response = await fetch(`/api/check-username/${this.form.uname}`);
-          const data = await response.json();
-          if (data.available) {
-            this.usernameAvailable = true;
-            this.usernameMessage = data.message;
-          } else {
-            this.usernameAvailable = false;
-            this.usernameMessage = data.message;
-          }
-        } catch (error) {
-          console.error("Error checking username availability:", error);
-          this.usernameMessage =
-            "Unable to check username availability. Please try again.";
-        }
-      },
-      isValidEmail(email) {
-        const re = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;
-        return re.test(email);
-      },
+      } catch (error) {
+        console.error("Error fetching services:", error);
+      }
     },
-  };
+    async checkUsernameAvailability() {
+      try {
+        const response = await fetch(`/api/check-username/${this.form.uname}`);
+        const data = await response.json();
+        if (data.available) {
+          this.usernameAvailable = true;
+          this.usernameMessage = data.message;
+        } else {
+          this.usernameAvailable = false;
+          this.usernameMessage = data.message;
+        }
+      } catch (error) {
+        console.error("Error checking username availability:", error);
+        this.usernameMessage =
+          "Unable to check username availability. Please try again.";
+      }
+    },
+    isValidEmail(email) {
+      const re = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;
+      return re.test(email);
+    },
+  },
+};
