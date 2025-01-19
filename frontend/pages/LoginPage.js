@@ -37,6 +37,7 @@ export default {
     return {
       email: "",
       password: "",
+      name: "",
       error: null,
     };
   },
@@ -59,10 +60,8 @@ export default {
         if (res.ok) {
           const data = await res.json();
           localStorage.setItem("user", JSON.stringify(data));
-          this.$store.commit("setUser");
+          this.$store.commit("setUser", data); // Store user data (including role)
           this.$store.dispatch("updateLastActivity"); // Update the last activity timestamp on login
-          // this.$router.push("/services");
-          this.$router.push("/admin_dashboard");
         } else {
           const errorData = await res.json();
           this.error = errorData.message || "Login failed";

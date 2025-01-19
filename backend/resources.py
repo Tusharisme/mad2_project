@@ -51,7 +51,7 @@ service_fields = {
 
 class CustomerResource(Resource):
     @auth_required('token')
-    @cache.memoize()
+    # @cache.memoize()
     @marshal_with(customer_fields)
     def get(self, customer_id):
         try:
@@ -72,7 +72,7 @@ class CustomerResource(Resource):
             return {'message': str(e)}, 500
 
 class ServiceProfessionalResource(Resource):
-    @auth_required('token')
+    # @auth_required('token')
     @cache.memoize()
     @marshal_with(service_professional_fields)
     def get(self, professional_id):
@@ -95,7 +95,7 @@ class ServiceProfessionalResource(Resource):
 
 class AllCustomersResource(Resource):
     @marshal_with(customer_fields)
-    # @auth_required('token')
+    @auth_required('token')
     def get(self):
         try:
             customers = Customer.query.all()
@@ -197,25 +197,22 @@ class AllServiceProfessionalsResource(Resource):
 
 class AllServicesResource(Resource):
     @marshal_with(service_fields)
-    @cache.cached()
-
     def get(self):
         try:
-            services = Service.query.all()
-            return services
+            services = Service.query.all()  # Ensure this query is correct.
+            return services, 200
         except Exception as e:
-            return {'message': str(e)}, 500
-        
-class ServiceResource(Resource):
-    @marshal_with(service_fields)
-    @cache.memoize()
+            return {'message': f"Error fetching services: {str(e)}"}, 500
 
+class ServiceResource(Resource):
+    @auth_required('token')
+    @marshal_with(service_fields)
     def get(self, service_id):
         try:
             service = Service.query.get_or_404(service_id)
-            return service
+            return service, 200
         except Exception as e:
-            return {'message': str(e)}, 500
+            return {'message': f"Error fetching service: {str(e)}"}, 500
 
 class CheckUsernameAvailabilityResource(Resource):
     def get(self, username):
@@ -228,6 +225,41 @@ class CheckUsernameAvailabilityResource(Resource):
                 return jsonify({"available": True, "message": "Username is available."})
         except Exception as e:
             return jsonify({"message": str(e)}), 500
+        
+class ModifyProfessionalStatusResource(Resource):
+    @auth_required('token')
+    def post(self, action, id):
+        print(f"Action: {action}, ID: {id}")
+
+        # Validate the action
+        if action not in ['approve', 'reject', 'block', 'unblock']:
+            return jsonify({"message": "Invalid action"}), 400
+
+        # Fetch the service professional by id
+        professional = ServiceProfessional.query.get(id)
+        if not professional:
+            return jsonify({"message": "Professional not found"}), 404
+
+        # Modify the professional's status based on the action
+        try:
+            if action == "approve":
+                professional.verified_status = "approved"
+            elif action == "reject":
+                professional.verified_status = "rejected"
+            elif action == "block":
+                professional.block_status = True
+            elif action == "unblock":
+                professional.block_status = False
+
+            db.session.commit()
+            return jsonify({"message": f"Professional {action}d successfully."}), 200
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error during {action}: {str(e)}")
+            return jsonify({"message": f"Error updating professional status: {str(e)}"}), 500
+
+# Register the API route
+api.add_resource(ModifyProfessionalStatusResource, '/service_professionals/<string:action>/<int:id>')
 
 # Add the new resource to the API
 api.add_resource(CheckUsernameAvailabilityResource, '/check-username/<string:username>')
