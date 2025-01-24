@@ -22,18 +22,14 @@ const servicesModule = {
 
         if (!response.ok) throw new Error("Failed to fetch services");
 
-        // Parse the response body as JSON and return it
         const services = await response.json();
         console.log("Fetched services:", services); // Log the parsed data
 
-        // Commit the services to the Vuex store
         commit("setServices", services);
-
-        // Return services to the component
         return services;
       } catch (error) {
         console.error("[Vuex] Failed to fetch services:", error.message);
-        return []; // Return an empty array in case of error
+        return [];
       }
     },
   },
@@ -86,8 +82,9 @@ const store = new Vuex.Store({
       commit("setLastActivity");
     },
     checkSessionTimeout({ state, commit }) {
+      const sessionTimeout = 30 * 60 * 1000; // 30 minutes
       const isExpired =
-        state.lastActivity && Date.now() - state.lastActivity > SESSION_TIMEOUT;
+        state.lastActivity && Date.now() - state.lastActivity > sessionTimeout;
 
       if (isExpired) {
         commit("logout");
@@ -96,8 +93,9 @@ const store = new Vuex.Store({
   },
   getters: {
     isSessionExpired: (state) => {
+      const sessionTimeout = 30 * 60 * 1000; // 30 minutes
       return (
-        state.lastActivity && Date.now() - state.lastActivity > SESSION_TIMEOUT
+        state.lastActivity && Date.now() - state.lastActivity > sessionTimeout
       );
     },
   },

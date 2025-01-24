@@ -37,7 +37,6 @@ export default {
     return {
       email: "",
       password: "",
-      name: "",
       error: null,
     };
   },
@@ -62,6 +61,16 @@ export default {
           localStorage.setItem("user", JSON.stringify(data));
           this.$store.commit("setUser", data); // Store user data (including role)
           this.$store.dispatch("updateLastActivity"); // Update the last activity timestamp on login
+
+          // Redirect to the appropriate dashboard based on user role
+          if (data.role === "customer") {
+            this.$router.push("/customer_dashboard");
+          } else if (data.role === "admin") {
+            this.$router.push("/admin_dashboard");
+          } else {
+            // Handle other cases or redirect to default
+            this.$router.push("/"); // Or any default route
+          }
         } else {
           const errorData = await res.json();
           this.error = errorData.message || "Login failed";

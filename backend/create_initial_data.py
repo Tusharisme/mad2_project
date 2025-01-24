@@ -1,5 +1,5 @@
 from flask import current_app as app
-from backend.models import Customer, Service, ServiceProfessional, db, User, Role
+from backend.models import Customer, Service, ServiceProfessional, ProfessionalService, db, User, Role
 from flask_security import SQLAlchemyUserDatastore, hash_password
 
 def setup_roles_and_users(app):
@@ -69,25 +69,51 @@ def setup_roles_and_users(app):
                 pin_code="654321"
             )
             db.session.add(new_professional)
-        # Add a couple of services
-        if not Service.query.filter_by(name="Plumbing").first():
-            plumbing_service = Service(
-                name="Plumbing",
-                base_price=100,
-                base_time_required="1 hour",
-                description="Basic plumbing services",
-                image_url=None
-            )
-            db.session.add(plumbing_service)
 
-        if not Service.query.filter_by(name="Electrical").first():
-            electrical_service = Service(
-                name="Electrical",
-                base_price=150,
-                base_time_required="1.5 hours",
-                description="Basic electrical services",
-                image_url=None
-            )
-            db.session.add(electrical_service)
+            # Ensure the professional is linked to services through ProfessionalService
+            # Create the services if they don't exist
+            plumbing_service = Service.query.filter_by(name="Plumbing").first()
+            if not plumbing_service:
+                plumbing_service = Service(
+                    name="Plumbing",
+                    base_price=100,
+                    base_time_required="1 hour",
+                    description="Basic plumbing services",
+                    image_url=None
+                )
+                db.session.add(plumbing_service)
+                db.session.commit()  # Commit to get the ID
 
+            electrical_service = Service.query.filter_by(name="Electrical").first()
+            if not electrical_service:
+                electrical_service = Service(
+                    name="Electrical",
+                    base_price=150,
+                    base_time_required="1.5 hours",
+                    description="Basic electrical services",
+                    image_url=None
+                )
+                db.session.add(electrical_service)
+                db.session.commit()  # Commit to get the ID
+
+            # Now, create the ProfessionalService instances
+            # Plumbing Service
+            professional_service_plumbing = ProfessionalService(
+                professional_id=new_professional.id,
+                service_id=plumbing_service.id,  # Link by service_id
+                custom_price=120,  # Optional custom price
+                custom_description="Custom plumbing service"
+            )
+            db.session.add(professional_service_plumbing)
+
+            # Electrical Service
+            professional_service_electrical = ProfessionalService(
+                professional_id=new_professional.id,
+                service_id=electrical_service.id,  # Link by service_id
+                custom_price=160,  # Optional custom price
+                custom_description="Custom electrical service"
+            )
+            db.session.add(professional_service_electrical)
+
+        # Commit all changes to the database
         db.session.commit()

@@ -1,5 +1,5 @@
 from flask_restful import Resource, Api, fields, marshal_with
-from backend.models import db, Customer, ServiceProfessional, User, Role, UserRoles, Service
+from backend.models import ProfessionalService, db, Customer, ServiceProfessional, User, Role, UserRoles, Service
 from flask import current_app as app, request, jsonify
 from flask_security import auth_required, hash_password
 
@@ -72,7 +72,7 @@ class CustomerResource(Resource):
             return {'message': str(e)}, 500
 
 class ServiceProfessionalResource(Resource):
-    # @auth_required('token')
+    @auth_required('token')
     @cache.memoize()
     @marshal_with(service_professional_fields)
     def get(self, professional_id):
@@ -257,6 +257,31 @@ class ModifyProfessionalStatusResource(Resource):
             db.session.rollback()
             print(f"Error during {action}: {str(e)}")
             return jsonify({"message": f"Error updating professional status: {str(e)}"}), 500
+
+class ProfessionalsByServiceResource(Resource):
+    # @auth_required('token')
+    @marshal_with(service_professional_fields)
+    def get(self, service_id):
+        try:
+            print(f"Fetching professionals for service_id: {service_id}")  # Debug log
+            professionals = (
+    ServiceProfessional.query
+    .join(ProfessionalService, ServiceProfessional.id == ProfessionalService.professional_id)
+    .join(Service, ProfessionalService.service_id == Service.id)
+    .filter(Service.id == service_id)
+    .all()
+)
+
+            print(professionals)  # Debug log
+            if not professionals:
+                return {'message': 'No professionals found for this service.'}, 404
+            return professionals, 200
+        except Exception as e:
+            print(f"Error in ProfessionalsByServiceResource: {e}")  # Debug log
+            return {'message': str(e)}, 500
+ 
+        
+api.add_resource(ProfessionalsByServiceResource, '/professionals-by-service/<int:service_id>')
 
 # Register the API route
 api.add_resource(ModifyProfessionalStatusResource, '/service_professionals/<string:action>/<int:id>')

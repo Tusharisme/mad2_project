@@ -29,4 +29,8 @@ const app = new Vue({
       );
     },
   },
+  beforeCreate() {
+    // Initialize user data from localStorage on app load
+    this.$store.commit("setUser");
+  },
 });

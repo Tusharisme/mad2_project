@@ -10,6 +10,7 @@ import AllCustomersPage from "../pages/AllCustomersPage.js";
 import AllProfessionalsPage from "../pages/AllProfessionalsPage.js";
 import CustomerDashboard from "../pages/CustomerDashboard.js";
 import ServiceProfessionals from "../pages/ServiceProfessional.js";
+import ProfessionalDashboard from "../pages/ProfessionalDashboard.js";
 
 const routes = [
   { path: "/", component: LandingPage },
@@ -49,24 +50,30 @@ const routes = [
     meta: { requiresLogin: true, role: "customer" },
   },
   {
-    path: "/service_professionals",
+    path: "/service-professionals/:serviceId",
     component: ServiceProfessionals,
     meta: { requiresLogin: true, role: "customer" },
+  },
+  {
+    path: "/professional_dashboard",
+    component: ProfessionalDashboard,
+    meta: { requiresLogin: true, role: "professional" },
   },
 ];
 
 const router = new VueRouter({
   routes,
 });
-// Session timeout guard
 router.beforeEach((to, from, next) => {
-  const { loggedIn, lastActivity, role } = store.state; // Access 'role' from Vuex store
+  const { loggedIn, lastActivity, role } = store.state;
   const sessionTimeout = 30 * 60 * 1000; // 30 minutes timeout
 
   if (lastActivity && Date.now() - lastActivity > sessionTimeout) {
     // Session expired
     alert("Your session has expired. Please log in again.");
     store.commit("logout"); // Clear session
+
+    // Programmatically redirect after logout
     next({ path: "/login" }); // Redirect to login
   } else {
     // Update last activity if session is valid

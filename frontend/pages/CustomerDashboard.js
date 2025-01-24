@@ -176,12 +176,48 @@ export default {
         </div>
       </div>
     </div>
+     <!-- Customer Testimonials Section -->
+    <div class="container mt-5">
+      <h3 class="text-center mb-4" style="text-decoration: underline;">What Our Customers Say</h3>
+      <div class="row">
+        <div v-for="testimonial in testimonials" :key="testimonial.name" class="col-md-4 mb-4">
+          <div class="card h-100 shadow-sm">
+            <div class="card-body">
+              <p class="card-text">
+                <i class="fas fa-quote-left"></i> {{ testimonial.feedback }} <i class="fas fa-quote-right"></i>
+              </p>
+              <h6 class="card-title mt-3 text-end">- {{ testimonial.name }}</h6>
+              <p class="text-end text-muted">{{ testimonial.location }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   </div>
   `,
   data() {
     return {
       customerName: this.getCustomerName(),
       services: [], // Will store fetched services
+      testimonials: [
+        {
+          name: "Alice Johnson",
+          feedback:
+            "The service was excellent, and the professional was very courteous!",
+          location: "New York, NY",
+        },
+        {
+          name: "Robert Smith",
+          feedback: "Highly recommend! Quick and reliable service every time.",
+          location: "Los Angeles, CA",
+        },
+        {
+          name: "Emily Davis",
+          feedback: "Amazing experience! Booking and service were seamless.",
+          location: "Chicago, IL",
+        },
+      ],
     };
   },
   created() {

@@ -160,6 +160,7 @@ export default {
         });
         if (res.ok) {
           console.log("We are Registered");
+          this.$router.push("/login");
         } else {
           const data = await res.json();
           this.errorMsg = data.message || "Registration failed.";

@@ -296,33 +296,51 @@ export default {
 
     <p v-else class="text-center"><b>No professionals available for this service.</b></p>
 
+
     <!-- Booking Modal -->
-    <div class="modal fade" id="bookingModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalLabel" aria-hidden="true">
       <div class="modal-dialog">
-        <div class="modal-content">
+        <div class="modal-content custom-modal">
           <div class="modal-header">
-            <h5 class="modal-title">Book Service</h5>
+            <h5 class="modal-title" id="bookingModalLabel">Book Service</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
-            <p><b>Professional:</b> {{ selectedProfessional?.name }}</p>
-            <p><b>Price:</b> ₹ {{ selectedProfessional?.price }}</p>
-            <div class="mb-3">
-              <label for="bookingDate" class="form-label">Booking Date</label>
-              <input type="date" id="bookingDate" class="form-control" v-model="bookingDate">
-            </div>
-            <div class="mb-3">
-              <label for="bookingTime" class="form-label">Booking Time</label>
-              <input type="time" id="bookingTime" class="form-control" v-model="bookingTime">
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            <button type="button" class="btn btn-primary" @click="confirmBooking">Confirm Booking</button>
+            <form @submit.prevent="confirmBooking">
+              <!-- Ensure v-if checks for null before binding id -->
+              <input type="hidden" v-if="selectedProfessional" v-model="selectedProfessional.id">
+              <input type="hidden" v-if="service.id" v-model="service.id">
+
+              <div class="mb-3">
+                <label for="serviceDate" class="form-label">Select Date</label>
+                <input type="date" class="form-control" v-model="bookingDate" required>
+              </div>
+              <div class="mb-3">
+                <label for="serviceTime" class="form-label">Select Time</label>
+                <input type="time" class="form-control" v-model="bookingTime" required>
+              </div>
+
+              <p>Please confirm the payment amount:</p>
+              <p>Amount: ₹{{ selectedProfessional ? selectedProfessional.price : 0 }}</p>
+
+              <div class="mb-3">
+                <label for="cardNumber" class="form-label">Card Number</label>
+                <input type="text" class="form-control" v-model="cardNumber" maxlength="16" required>
+              </div>
+              <div class="mb-3">
+                <label for="expirationDate" class="form-label">Expiration Date</label>
+                <input type="text" class="form-control" v-model="expirationDate" placeholder="MM/YY" maxlength="5" required>
+              </div>
+              <div class="mb-3">
+                <label for="cvv" class="form-label">CVV</label>
+                <input type="text" class="form-control" v-model="cvv" maxlength="3" required>
+              </div>
+              <button type="submit" class="btn btn-primary">Confirm Booking</button>
+            </form>
           </div>
         </div>
       </div>
-    </div>
+      </div>
   </div>
   `,
   data() {
@@ -335,6 +353,9 @@ export default {
       selectedProfessional: null,
       bookingDate: "",
       bookingTime: "",
+      cardNumber: "",
+      expirationDate: "",
+      cvv: "",
     };
   },
   created() {
@@ -345,15 +366,16 @@ export default {
     async fetchProfessionals(serviceId) {
       try {
         const response = await fetch(
-          `/api/service-professionals/${serviceId}`,
+          `/api/professionals-by-service/${serviceId}`,
           {
             method: "GET",
             headers: {
               "Content-Type": "application/json",
+              "Authentication-Token": this.$store.state.auth_token, // Ensure this matches your backend
             },
           }
         );
-
+        // console.log(response.json());
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
@@ -362,10 +384,7 @@ export default {
         console.log("Fetched Data:", data);
 
         if (data) {
-          this.service = { id: data.service.id, name: data.service.name };
-          this.professionals = data.professionals || [];
-          console.log("Service Details:", this.service);
-          console.log("Professionals List:", this.professionals);
+          this.professionals = data || [];
         }
       } catch (error) {
         console.error("Error fetching professionals:", error);

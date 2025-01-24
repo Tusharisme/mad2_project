@@ -3,7 +3,7 @@ import cloudinary
 from flask import current_app as app, jsonify, render_template, request, send_file
 from flask_login import login_user
 from flask_security import auth_required, verify_password, hash_password
-from backend.models import Customer, ServiceProfessional, db
+from backend.models import Customer, ProfessionalService, Service, ServiceProfessional, db
 datastore = app.security.datastore
 cache = app.cache
 from backend.models import User
@@ -165,8 +165,11 @@ def register_professional():
         )
         db.session.add(new_user)
         db.session.commit()
-
-        # Add additional details in the ServiceProfessional table
+        # Instead of using `service_type`, fetch the Service object
+        service = Service.query.filter_by(name=service_type).first()
+        if not service:
+            return jsonify({'message': 'Invalid service type provided'}), 400
+        # Add the professional details in the ServiceProfessional table
         professional = ServiceProfessional(
             user_id=new_user.id,
             name=name,
@@ -180,7 +183,21 @@ def register_professional():
             document_url=document_url
         )
         db.session.add(professional)
-        db.session.commit()
+        db.session.commit()  # Commit the professional data first
+
+        # Now add the professional_service
+        professional_service = ProfessionalService(
+            professional_id=professional.id,  # Link the professional via their ID
+            service_id=service.id,  # Use the selected service type directly
+            custom_price=None,  # You can add custom price and other fields here if needed
+            custom_description=None,
+        )
+
+        db.session.add(professional_service)  # Add the professional_service to the session
+        db.session.commit()  # Commit the professional_service data
+
+
+
 
         return jsonify({'message': 'Professional successfully registered'}), 201
 

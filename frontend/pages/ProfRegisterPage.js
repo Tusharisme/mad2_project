@@ -163,6 +163,7 @@ export default {
         if (res.ok) {
           console.log("We are Registered as a Professional");
           // Handle success (redirect or show success message)
+          this.$router.push("/login");
         } else {
           const data = await res.json();
           this.messages.push(data.message || "Registration failed.");
