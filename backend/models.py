@@ -286,7 +286,7 @@ class Payment(db.Model):
     payment_status = db.Column(db.String, nullable=False, default="Pending")
     is_transferred = db.Column(db.Boolean, default=False)
 
-    service_request = db.relationship("Service_Request", back_populates="payments")
+    service_request = db.relationship("ServiceRequest", back_populates="payments")
     customer = db.relationship("Customer", backref="payments")
     professional = db.relationship("ServiceProfessional", backref="payments")
 
@@ -306,7 +306,7 @@ class ProfessionalWallet(db.Model):
     balance = db.Column(db.Float, default=0.0)
 
 # Service_Request Model
-class Service_Request(db.Model):
+class ServiceRequest(db.Model):
     __tablename__ = "service_request"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     service_id = db.Column(db.Integer, db.ForeignKey("service.id"), nullable=False)

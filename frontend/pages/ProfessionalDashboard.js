@@ -14,15 +14,15 @@ export default {
               v-for="request in requests" 
               :key="request.id" 
               class="col-md-4 mb-4"
-              v-if="request.status === 'pending'"
+              v-if="request.status === 'requested'"
             >
               <div class="card h-100 shadow-sm">
                 <div class="card-body">
-                  <h5 class="card-title">{{ request.serviceType }}</h5>
+                  <h5 class="card-title">{{ request.serviceName }}</h5>
                   <p class="card-text">
-                    Request Date: {{ request.requestDate }}<br/>
+                    Request ID: {{ request.id }}<br/>
+                    Requested Date: {{ request.requestedDate }}<br/>
                     Customer: {{ request.customerName }}<br/>
-                    Description: {{ request.description }}
                   </p>
                   <button class="btn btn-success btn-sm" @click="acceptRequest(request.id)">
                     Accept
@@ -43,17 +43,18 @@ export default {
             <div v-for="request in requests" :key="request.id" class="col-md-4 mb-4">
               <div 
                 class="card h-100 shadow-sm" 
-                v-if="request.status !== 'pending'"
+                v-if="request.status !== 'requested'"
               >
                 <div class="card-body">
-                  <h5 class="card-title">{{ request.serviceType }}</h5>
+                  <h5 class="card-title">{{ request.serviceName }}</h5>
                   <p class="card-text">
-                    Request Date: {{ request.requestDate }}<br/>
+                    Request ID: {{ request.id }}<br/>
+                    Requested Date: {{ request.requestedDate }}<br/>
                     Customer: {{ request.customerName }}<br/>
-                    Status: {{ request.status }}
+                    Current Status: {{ request.status }}
                   </p>
                   <button 
-                    v-if="request.status === 'in_progress'"
+                    v-if="request.status === 'accepted'"
                     class="btn btn-primary btn-sm"
                     @click="markCompleted(request.id)"
                   >
@@ -112,7 +113,7 @@ export default {
     },
     async fetchRequests() {
       try {
-        const response = await fetch("/api/service-requests", {
+        const response = await fetch("/api/service_requests", {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -123,32 +124,95 @@ export default {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
         const data = await response.json();
-        if (data && Array.isArray(data)) {
-          // Sample transformation for requests
-          this.requests = data.map((req) => ({
-            id: req.id,
-            serviceType: req.service_type,
-            requestDate: req.created_at,
-            customerName: req.customer_name,
-            status: req.status,
-            description: req.description,
-          }));
-        }
+        /*
+          Each item in 'data' is expected to have:
+            - id
+            - service_name
+            - requested_date
+            - customer_name
+            - status
+            etc.
+          Adjust the transformations accordingly.
+        */
+        this.requests = data.map((req) => ({
+          id: req.id,
+          serviceName: req.service_name,
+          requestedDate: req.requested_date,
+          customerName: req.customer_name,
+          status: req.service_status,
+        }));
       } catch (error) {
         console.error("Error fetching requests:", error);
       }
     },
     acceptRequest(requestId) {
-      console.log("Accept request:", requestId);
-      // Logic to accept request here
+      fetch(`/accept_service/${requestId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authentication-Token": this.$store.state.auth_token || "",
+        },
+      })
+        .then((response) => {
+          if (response.ok) {
+            window.location.href = "/professional_dashboard";
+          } else {
+            return response.json().then((data) => {
+              alert("Error: " + data.message);
+            });
+          }
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+          alert("An error occurred. Please try again.");
+        });
     },
     rejectRequest(requestId) {
-      console.log("Reject request:", requestId);
-      // Logic to reject request here
+      fetch(`/reject_service/${requestId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authentication-Token": this.$store.state.auth_token || "",
+        },
+      })
+        .then((response) => {
+          if (response.ok) {
+            window.location.href = "/professional_dashboard";
+          } else {
+            return response.json().then((data) => {
+              alert("Error: " + data.message);
+            });
+          }
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+          alert("An error occurred. Please try again.");
+        });
     },
     markCompleted(requestId) {
-      console.log("Mark request as completed:", requestId);
-      // Logic to mark request as completed here
+      fetch("/close_service_professional", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authentication-Token": this.$store.state.auth_token || "",
+        },
+        body: JSON.stringify({
+          requestId: requestId,
+        }),
+      })
+        .then((response) => {
+          if (response.ok) {
+            window.location.href = "/professional_dashboard";
+          } else {
+            return response.json().then((data) => {
+              alert("Error: " + data.message);
+            });
+          }
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+          alert("An error occurred. Please try again.");
+        });
     },
   },
 };

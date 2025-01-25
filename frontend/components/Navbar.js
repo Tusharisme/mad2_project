@@ -3,7 +3,12 @@ export default {
   <nav class="navbar navbar-expand-lg navbar-custom fixed-navbar">
     <div class="container">
       <!-- Dropdown Menu for Admin Actions -->
-      <div v-if="$store.state.loggedIn && $store.state.role === 'admin'" class="dropdown me-3" :class="{'show': dropdownVisible}" @mouseleave="dropdownVisible = false">
+      <div 
+        v-if="$store.state.loggedIn && $store.state.role === 'admin'" 
+        class="dropdown me-3" 
+        :class="{'show': dropdownVisible}" 
+        @mouseleave="dropdownVisible = false"
+      >
         <button
           class="btn btn-light dropdown-toggle"
           type="button"
@@ -22,7 +27,12 @@ export default {
       </div>
 
       <!-- Dropdown Menu for Customer Actions -->
-      <div v-if="$store.state.loggedIn && $store.state.role === 'customer'" class="dropdown me-3" :class="{'show': dropdownVisible}" @mouseleave="dropdownVisible = false">
+      <div 
+        v-if="$store.state.loggedIn && $store.state.role === 'customer'" 
+        class="dropdown me-3" 
+        :class="{'show': dropdownVisible}" 
+        @mouseleave="dropdownVisible = false"
+      >
         <button
           class="btn btn-light dropdown-toggle"
           type="button"
@@ -35,6 +45,31 @@ export default {
         <ul class="dropdown-menu" aria-labelledby="customerActions">
           <router-link class="dropdown-item" to="/profile">Profile</router-link>
           <router-link class="dropdown-item" to="/search">Search Services</router-link>
+          <router-link class="dropdown-item" to="/service_history">Service History</router-link>
+          <router-link class="dropdown-item" to="/logistics">Logistics</router-link>
+          <router-link class="dropdown-item" to="/payment">Payment</router-link>
+        </ul>
+      </div>
+
+      <!-- Dropdown Menu for Professional Actions -->
+      <div 
+        v-if="$store.state.loggedIn && $store.state.role === 'professional'" 
+        class="dropdown me-3" 
+        :class="{'show': dropdownVisible}" 
+        @mouseleave="dropdownVisible = false"
+      >
+        <button
+          class="btn btn-light dropdown-toggle"
+          type="button"
+          id="professionalActions"
+          aria-expanded="false"
+          @mouseenter="dropdownVisible = true"
+        >
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <ul class="dropdown-menu" aria-labelledby="professionalActions">
+          <router-link class="dropdown-item" to="/profile">Profile</router-link>
+          <router-link class="dropdown-item" to="/search_customers">Search Customers</router-link>
           <router-link class="dropdown-item" to="/service_history">Service History</router-link>
           <router-link class="dropdown-item" to="/logistics">Logistics</router-link>
           <router-link class="dropdown-item" to="/payment">Payment</router-link>
@@ -73,7 +108,9 @@ export default {
             <router-link to="/register_professional" class="nav-link"><b>Register as Professional</b></router-link>
           </li>
           <li class="nav-item" v-if="$store.state.loggedIn">
-            <button class="btn btn-secondary nav-link" @click="$store.commit('logout')">Logout</button>
+            <button class="btn btn-secondary nav-link" @click="$store.commit('logout')">
+              Logout
+            </button>
           </li>
         </ul>
       </div>
@@ -82,7 +119,7 @@ export default {
   `,
   data() {
     return {
-      dropdownVisible: false, // Track if dropdown is visible
+      dropdownVisible: false,
     };
   },
   methods: {
@@ -91,8 +128,8 @@ export default {
     },
   },
   watch: {
-    $route(to, from) {
-      this.dropdownVisible = false; // Close dropdown when navigating to a new page
+    $route() {
+      this.dropdownVisible = false;
     },
   },
 };

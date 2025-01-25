@@ -47,31 +47,30 @@ def setup_roles_and_users(app):
             )
             db.session.add(new_customer)
 
-        # Create a service professional user
-        if not user_datastore.find_user(email="pro01@study.iitm.ac.in"):
-            professional_user = user_datastore.create_user(
-                email="pro01@study.iitm.ac.in",
+        # Create service professionals for Plumbing and Electrical
+        if not user_datastore.find_user(email="pro_plumbing@study.iitm.ac.in"):
+            professional_user_plumbing = user_datastore.create_user(
+                email="pro_plumbing@study.iitm.ac.in",
                 password=hash_password("pass"),
-                username="pro01",
+                username="pro_plumbing",
                 roles=["professional"]
             )
             db.session.commit()  # Commit the user to get the user_id
 
-            # Add ServiceProfessional-specific details
-            new_professional = ServiceProfessional(
-                user_id=professional_user.id,
-                name="Professional Name",
-                service_type="Electrician",
+            # Add ServiceProfessional-specific details for Plumbing
+            new_professional_plumbing = ServiceProfessional(
+                user_id=professional_user_plumbing.id,
+                name="Plumbing Professional",
+                service_type="Plumbing",
                 experience=5,
                 phone_no="9876543210",
-                email=professional_user.email,
-                address="456 Service Lane",
+                email=professional_user_plumbing.email,
+                address="456 Plumbing Street",
                 pin_code="654321"
             )
-            db.session.add(new_professional)
+            db.session.add(new_professional_plumbing)
 
-            # Ensure the professional is linked to services through ProfessionalService
-            # Create the services if they don't exist
+            # Link to the Plumbing service
             plumbing_service = Service.query.filter_by(name="Plumbing").first()
             if not plumbing_service:
                 plumbing_service = Service(
@@ -82,8 +81,40 @@ def setup_roles_and_users(app):
                     image_url=None
                 )
                 db.session.add(plumbing_service)
-                db.session.commit()  # Commit to get the ID
+                db.session.commit()
 
+            professional_service_plumbing = ProfessionalService(
+                professional_id=new_professional_plumbing.id,
+                service_id=plumbing_service.id,
+                custom_price=120,
+                custom_time_required="1.5 hours",
+                custom_description="Custom plumbing service"
+            )
+            db.session.add(professional_service_plumbing)
+
+        if not user_datastore.find_user(email="pro_electrical@study.iitm.ac.in"):
+            professional_user_electrical = user_datastore.create_user(
+                email="pro_electrical@study.iitm.ac.in",
+                password=hash_password("pass"),
+                username="pro_electrical",
+                roles=["professional"]
+            )
+            db.session.commit()  # Commit the user to get the user_id
+
+            # Add ServiceProfessional-specific details for Electrical
+            new_professional_electrical = ServiceProfessional(
+                user_id=professional_user_electrical.id,
+                name="Electrical Professional",
+                service_type="Electrical",
+                experience=5,
+                phone_no="9876543210",
+                email=professional_user_electrical.email,
+                address="456 Electrical Street",
+                pin_code="654321"
+            )
+            db.session.add(new_professional_electrical)
+
+            # Link to the Electrical service
             electrical_service = Service.query.filter_by(name="Electrical").first()
             if not electrical_service:
                 electrical_service = Service(
@@ -94,23 +125,12 @@ def setup_roles_and_users(app):
                     image_url=None
                 )
                 db.session.add(electrical_service)
-                db.session.commit()  # Commit to get the ID
+                db.session.commit()
 
-            # Now, create the ProfessionalService instances
-            # Plumbing Service
-            professional_service_plumbing = ProfessionalService(
-                professional_id=new_professional.id,
-                service_id=plumbing_service.id,  # Link by service_id
-                custom_price=120,  # Optional custom price
-                custom_description="Custom plumbing service"
-            )
-            db.session.add(professional_service_plumbing)
-
-            # Electrical Service
             professional_service_electrical = ProfessionalService(
-                professional_id=new_professional.id,
-                service_id=electrical_service.id,  # Link by service_id
-                custom_price=160,  # Optional custom price
+                professional_id=new_professional_electrical.id,
+                service_id=electrical_service.id,
+                custom_price=160,
                 custom_description="Custom electrical service"
             )
             db.session.add(professional_service_electrical)
