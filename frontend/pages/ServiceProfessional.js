@@ -151,7 +151,8 @@ export default {
     },
     async confirmBooking() {
       try {
-        const customerId = this.$store.state.user_id;
+        const customerId = this.$store.state.customer.id;
+        console.log("Customer ID:", customerId); // Debug log
         const bookingData = {
           professional_id: this.selectedProfessional.id,
           service_id: this.service.id,
@@ -162,17 +163,14 @@ export default {
 
         console.log("Sending booking data:", bookingData); // Debug log
 
-        const response = await fetch(
-          `${location.origin}/api/service-requests`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authentication-Token": this.$store.state.auth_token,
-            },
-            body: JSON.stringify(bookingData),
-          }
-        );
+        const response = await fetch(`${location.origin}/api/book-service`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authentication-Token": this.$store.state.auth_token,
+          },
+          body: JSON.stringify(bookingData),
+        });
 
         if (response.ok) {
           const result = await response.json();

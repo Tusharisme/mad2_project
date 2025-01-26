@@ -35,22 +35,22 @@ export default {
         {
           title: "Women's Salon & Spa",
           image:
-            "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736747058/demo_services/orrhi0m6aymsg2cgwuga.jpg",
+            "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736747058/services/orrhi0m6aymsg2cgwuga.jpg",
         },
         {
           title: "Men's Salon",
           image:
-            "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736747067/demo_services/irpmguvcsjbngnignmal.jpg",
+            "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736747067/services/irpmguvcsjbngnignmal.jpg",
         },
         {
           title: "Home Cleaning",
           image:
-            "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736747109/demo_services/rqdhk8o8x7yxggeshjgh.jpg",
+            "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736747109/services/rqdhk8o8x7yxggeshjgh.jpg",
         },
         {
           title: "Electrician Services",
           image:
-            "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736746813/demo_services/upoxvwc7bjxdlwp3hcha.jpg",
+            "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736746813/services/upoxvwc7bjxdlwp3hcha.jpg",
         },
       ],
     };

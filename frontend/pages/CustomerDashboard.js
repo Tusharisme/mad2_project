@@ -76,22 +76,22 @@
 //         {
 //           title: "Women's Salon & Spa",
 //           image:
-//             "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736747058/demo_services/orrhi0m6aymsg2cgwuga.jpg",
+//             "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736747058/services/orrhi0m6aymsg2cgwuga.jpg",
 //         },
 //         {
 //           title: "Men's Salon",
 //           image:
-//             "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736747067/demo_services/irpmguvcsjbngnignmal.jpg",
+//             "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736747067/services/irpmguvcsjbngnignmal.jpg",
 //         },
 //         {
 //           title: "Home Cleaning",
 //           image:
-//             "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736747109/demo_services/rqdhk8o8x7yxggeshjgh.jpg",
+//             "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736747109/services/rqdhk8o8x7yxggeshjgh.jpg",
 //         },
 //         {
 //           title: "Electrician Services",
 //           image:
-//             "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736746813/demo_services/upoxvwc7bjxdlwp3hcha.jpg",
+//             "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736746813/services/upoxvwc7bjxdlwp3hcha.jpg",
 //         },
 //       ],
 //       featuredServices: [
@@ -99,19 +99,19 @@
 //           title: "Air Conditioner Repair",
 //           price: 499,
 //           image:
-//             "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1737293900/demo_services/u9ketst3uf4z0iwjyho3.jpg",
+//             "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1737293900/services/u9ketst3uf4z0iwjyho3.jpg",
 //         },
 //         {
 //           title: "Pest Control",
 //           price: 799,
 //           image:
-//             "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1737294020/demo_services/mczuyu51ataoov1ec9oc.jpg",
+//             "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1737294020/services/mczuyu51ataoov1ec9oc.jpg",
 //         },
 //         {
 //           title: "Furniture Assembly",
 //           price: 999,
 //           image:
-//             "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1737293967/demo_services/b6wjntw3lzvdpcwpm0tq.jpg",
+//             "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1737293967/services/b6wjntw3lzvdpcwpm0tq.jpg",
 //         },
 //       ],
 //       testimonials: [

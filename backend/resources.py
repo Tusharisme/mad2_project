@@ -1,5 +1,6 @@
 from datetime import datetime
-from flask_restful import Resource, Api, fields, marshal_with
+import cloudinary
+from flask_restful import Resource, Api, fields, marshal, marshal_with
 from backend.models import ProfessionalService, ServiceRequest, db, Customer, ServiceProfessional, User, Role, UserRoles, Service
 from flask import current_app as app, request, jsonify
 from flask_security import auth_required, hash_password
@@ -83,7 +84,6 @@ class CustomerResource(Resource):
 
 class ServiceProfessionalResource(Resource):
     @auth_required('token')
-    @cache.memoize()
     @marshal_with(service_professional_fields)
     def get(self, professional_id):
         try:
@@ -205,15 +205,80 @@ class AllServiceProfessionalsResource(Resource):
         except Exception as e:
             db.session.rollback()
             return {'message': str(e)}, 500
-
+        
 class AllServicesResource(Resource):
     @marshal_with(service_fields)
     def get(self):
         try:
-            services = Service.query.all()  # Ensure this query is correct.
+            services = Service.query.all()  # Fetch all services
             return services, 200
         except Exception as e:
             return {'message': f"Error fetching services: {str(e)}"}, 500
+    
+    @auth_required('token')
+    @marshal_with(service_fields)
+    def post(self):
+        # Get form data
+        name = request.form.get('name')
+        description = request.form.get('description')
+        base_price = request.form.get('base_price')
+        base_time_required = request.form.get('base_time_required')
+        
+        # Basic validation for required fields
+        if not name or not description or not base_price or not base_time_required:
+            return {'message': 'Missing required fields'}, 400
+        
+        try:
+            # Convert base_price and base_time_required to correct types
+            base_price = float(base_price)
+            base_time_required = int(base_time_required)
+        except ValueError:
+            return {'message': 'Invalid data types for base_price or base_time_required'}, 400
+        
+        # Handle picture upload (if any)
+        picture = request.files.get('picture')  # Get the uploaded picture
+
+        image_url = None  # Default to None if no picture
+
+        if picture:
+            try:
+                # Upload to Cloudinary and get the image URL
+                upload_result = cloudinary.uploader.upload(
+                    picture,
+                    folder="services"  # Folder where images will be stored in Cloudinary
+                )
+                image_url = upload_result['secure_url']  # Get the URL of the uploaded image
+            except Exception as e:
+                return {'message': f"Error uploading image: {str(e)}"}, 500
+        
+        # Create a new service entry
+        new_service = Service(
+            name=name,
+            description=description,
+            base_price=base_price,
+            base_time_required=base_time_required,
+            image_url=image_url  # Store the Cloudinary image URL
+        )
+        
+        try:
+            # Add the new service to the database and commit
+            db.session.add(new_service)
+            db.session.commit()
+
+            # Return success response
+            return {
+                'message': 'Service added successfully',
+                'service_id': new_service.id,
+                'image_url': image_url  # Include image URL in response for confirmation
+            }, 200
+
+        except Exception as e:
+            db.session.rollback()  # Rollback any changes if there's an error in committing
+            return {'message': f"Error adding service: {str(e)}"}, 500
+        
+        
+from cloudinary.uploader import upload
+from cloudinary.exceptions import Error as CloudinaryError
 
 class ServiceResource(Resource):
     @auth_required('token')
@@ -224,6 +289,75 @@ class ServiceResource(Resource):
             return service, 200
         except Exception as e:
             return {'message': f"Error fetching service: {str(e)}"}, 500
+        
+    @auth_required('token')
+    def put(self, service_id):
+        try:
+            # Fetch the service to update
+            service = Service.query.get_or_404(service_id)
+
+            # Get form data (excluding the image)
+            name = request.form.get('name', service.name)
+            description = request.form.get('description', service.description)
+            base_price = request.form.get('base_price', service.base_price)
+            base_time_required = request.form.get('base_time_required', service.base_time_required)
+
+            # Basic validation for required fields
+            if not name or not description or not base_price or not base_time_required:
+                return {'message': 'Missing required fields'}, 400
+
+            try:
+                # Convert base_price and base_time_required to correct types
+                base_price = float(base_price)
+                base_time_required = int(base_time_required)
+            except ValueError:
+                return {'message': 'Invalid data types for base_price or base_time_required'}, 400
+
+            # Update service details
+            service.name = name
+            service.description = description
+            service.base_price = base_price
+            service.base_time_required = base_time_required
+
+            # Handle picture upload if included
+            picture = request.files.get('picture')  # Get the uploaded picture (if any)
+            image_url = None  # Default to None if no picture
+
+            if picture:
+                try:
+                    # Upload to Cloudinary and get the image URL
+                    upload_result = cloudinary.uploader.upload(
+                        picture,
+                        folder="services"  # Folder where images will be stored in Cloudinary
+                    )
+                    image_url = upload_result['secure_url']  # Get the URL of the uploaded image
+
+                    # Update the service image URL
+                    service.image_url = image_url
+
+                except Exception as e:
+                    return {'message': f"Error uploading image: {str(e)}"}, 500
+
+            # Commit the changes to the database
+            db.session.commit()
+
+            return {'message': 'Service updated successfully', 'image_url': image_url or service.image_url}, 200
+
+        except Exception as e:
+            db.session.rollback()  # Rollback any changes if there's an error
+            return {'message': f"Error updating service: {str(e)}"}, 500
+
+
+    @auth_required('token')
+    def delete(self, service_id):
+        try:
+            service = Service.query.get_or_404(service_id)
+            db.session.delete(service)
+            db.session.commit()
+            return {'message': 'Service deleted successfully'}, 200
+        except Exception as e:
+            return {'message': f"Error deleting service: {str(e)}"}, 500
+    
 
 class CheckUsernameAvailabilityResource(Resource):
     def get(self, username):
@@ -331,190 +465,190 @@ service_request_fields = {
     'requested_time': fields.String,
 }
 
-# class ServiceRequestListResource(Resource):
-#     """
-#     Use this resource to retrieve all service requests or create a new one.
-#     Example usage:
-#       GET /api/service_requests
-#       POST /api/service_requests
-#     """
-#     @auth_required('token')
-#     @marshal_with(service_request_fields)
-#     def get(self):
-#         try:
-#             service_requests = ServiceRequest.query.all()
-#             return service_requests, 200
-#         except Exception as e:
-#             return {'message': f"Error fetching service requests: {str(e)}"}, 500
+class ServiceRequestListResource(Resource):
+    """
+    Use this resource to retrieve all service requests or create a new one.
+    Example usage:
+      GET /api/service_requests
+      POST /api/service_requests
+    """
+    @auth_required('token')
+    @marshal_with(service_request_fields)   
+    def get(self):
+        try:
+            service_requests = ServiceRequest.query.all()
+            return service_requests, 200
+        except Exception as e:
+            return {'message': f"Error fetching service requests: {str(e)}"}, 500
 
-#     @auth_required('token')
-#     def post(self):
-#         """
-#         Create a new service request. 
-#         The request body should include:
-#         {
-#             "service_id": ...,
-#             "customer_id": ...,
-#             "professional_id": ...,
-#             "requested_date": "...",
-#             "requested_time": "...",
-#             "remarks": "..."
-#         }
-#         """
-#         try:
-#             data = request.get_json()
-#             new_request = ServiceRequest(
-#                 service_id=data['service_id'],
-#                 customer_id=data['customer_id'],
-#                 professional_id=data['professional_id'],
-#                 date_of_request=datetime.utcnow(),
-#                 service_status="requested",
-#                 remarks=data.get('remarks'),
-#                 requested_date=data.get('requested_date'),
-#                 requested_time=data.get('requested_time')
-#             )
-#             db.session.add(new_request)
-#             db.session.commit()
-#             return {'message': 'Service request created successfully'}, 201
-#         except Exception as e:
-#             db.session.rollback()
-#             return {'message': str(e)}, 500
+    @auth_required('token')
+    def post(self):
+        """
+        Create a new service request. 
+        The request body should include:
+        {
+            "service_id": ...,
+            "customer_id": ...,
+            "professional_id": ...,
+            "requested_date": "...",
+            "requested_time": "...",
+            "remarks": "..."
+        }
+        """
+        try:
+            data = request.get_json()
+            new_request = ServiceRequest(
+                service_id=data['service_id'],
+                customer_id=data['customer_id'],
+                professional_id=data['professional_id'],
+                date_of_request=datetime.utcnow(),
+                service_status="requested",
+                remarks=data.get('remarks'),
+                requested_date=data.get('requested_date'),
+                requested_time=data.get('requested_time')
+            )
+            db.session.add(new_request)
+            db.session.commit()
+            return {'message': 'Service request created successfully'}, 201
+        except Exception as e:
+            db.session.rollback()
+            return {'message': str(e)}, 500
 
-# class SingleServiceRequestResource(Resource):
-#     """
-#     Use this resource to retrieve, update, or delete a single service request by ID.
-#     Example usage:
-#       GET /api/service_requests/<int:request_id>
-#       PATCH /api/service_requests/<int:request_id>
-#       DELETE /api/service_requests/<int:request_id>
-#     """
-#     @auth_required('token')
-#     @marshal_with(service_request_fields)
-#     def get(self, request_id):
-#         try:
-#             service_request = ServiceRequest.query.get_or_404(request_id)
-#             return service_request, 200
-#         except Exception as e:
-#             return {'message': str(e)}, 500
+class SingleServiceRequestResource(Resource):
+    """
+    Use this resource to retrieve, update, or delete a single service request by ID.
+    Example usage:
+      GET /api/service_requests/<int:request_id>
+      PATCH /api/service_requests/<int:request_id>
+      DELETE /api/service_requests/<int:request_id>
+    """
+    @auth_required('token')
+    @marshal_with(service_request_fields)
+    def get(self, request_id):
+        try:
+            service_request = ServiceRequest.query.get_or_404(request_id)
+            return service_request, 200
+        except Exception as e:
+            return {'message': str(e)}, 500
 
-#     @auth_required('token')
-#     def patch(self, request_id):
-#         """
-#         You can partially update the service request here. 
-#         For example, to update the remarks or status:
-#         {
-#             "service_status": "...",
-#             "remarks": "...",
-#             "rating": ...
-#         }
-#         """
-#         try:
-#             data = request.get_json()
-#             service_request = ServiceRequest.query.get_or_404(request_id)
-#             if 'service_status' in data:
-#                 service_request.service_status = data['service_status']
-#             if 'remarks' in data:
-#                 service_request.remarks = data['remarks']
-#             if 'rating' in data:
-#                 service_request.rating = data['rating']
-#             db.session.commit()
-#             return {'message': f"Service request {request_id} updated successfully"}, 200
-#         except Exception as e:
-#             db.session.rollback()
-#             return {'message': str(e)}, 500
+    @auth_required('token')
+    def patch(self, request_id):
+        """
+        You can partially update the service request here. 
+        For example, to update the remarks or status:
+        {
+            "service_status": "...",
+            "remarks": "...",
+            "rating": ...
+        }
+        """
+        try:
+            data = request.get_json()
+            service_request = ServiceRequest.query.get_or_404(request_id)
+            if 'service_status' in data:
+                service_request.service_status = data['service_status']
+            if 'remarks' in data:
+                service_request.remarks = data['remarks']
+            if 'rating' in data:
+                service_request.rating = data['rating']
+            db.session.commit()
+            return {'message': f"Service request {request_id} updated successfully"}, 200
+        except Exception as e:
+            db.session.rollback()
+            return {'message': str(e)}, 500
 
-#     @auth_required('token')
-#     def delete(self, request_id):
-#         """
-#         Delete a service request by ID.
-#         """
-#         try:
-#             service_request = ServiceRequest.query.get_or_404(request_id)
-#             db.session.delete(service_request)
-#             db.session.commit()
-#             return {'message': f'Service request {request_id} deleted successfully'}, 200
-#         except Exception as e:
-#             db.session.rollback()
-#             return {'message': str(e)}, 500
+    @auth_required('token')
+    def delete(self, request_id):
+        """
+        Delete a service request by ID.
+        """
+        try:
+            service_request = ServiceRequest.query.get_or_404(request_id)
+            db.session.delete(service_request)
+            db.session.commit()
+            return {'message': f'Service request {request_id} deleted successfully'}, 200
+        except Exception as e:
+            db.session.rollback()
+            return {'message': str(e)}, 500
 
-# class AcceptServiceRequestResource(Resource):
-#     """
-#     POST /api/service_requests/<int:request_id>/accept
-#     """
-#     @auth_required('token')
-#     def post(self, request_id):
-#         try:
-#             service_request = ServiceRequest.query.get_or_404(request_id)
+class AcceptServiceRequestResource(Resource):
+    """
+    POST /api/service_requests/<int:request_id>/accept
+    """
+    @auth_required('token')
+    def post(self, request_id):
+        try:
+            service_request = ServiceRequest.query.get_or_404(request_id)
 
-#             if service_request.service_status != "requested":
-#                 return {'message': 'Cannot accept service request unless it is in "requested" status'}, 400
+            if service_request.service_status != "requested":
+                return {'message': 'Cannot accept service request unless it is in "requested" status'}, 400
 
-#             service_request.service_status = "accepted"
-#             db.session.commit()
-#             return {'message': f'Service request {request_id} accepted'}, 200
-#         except Exception as e:
-#             db.session.rollback()
-#             return {'message': str(e)}, 500
+            service_request.service_status = "accepted"
+            db.session.commit()
+            return {'message': f'Service request {request_id} accepted'}, 200
+        except Exception as e:
+            db.session.rollback()
+            return {'message': str(e)}, 500
 
-# class RejectServiceRequestResource(Resource):
-#     """
-#     POST /api/service_requests/<int:request_id>/reject
-#     """
-#     @auth_required('token')
-#     def post(self, request_id):
-#         try:
-#             service_request = ServiceRequest.query.get_or_404(request_id)
+class RejectServiceRequestResource(Resource):
+    """
+    POST /api/service_requests/<int:request_id>/reject
+    """
+    @auth_required('token')
+    def post(self, request_id):
+        try:
+            service_request = ServiceRequest.query.get_or_404(request_id)
 
-#             if service_request.service_status != "requested":
-#                 return {'message': 'Cannot reject service request unless it is in "requested" status'}, 400
+            if service_request.service_status != "requested":
+                return {'message': 'Cannot reject service request unless it is in "requested" status'}, 400
 
-#             service_request.service_status = "rejected"
-#             db.session.commit()
-#             return {'message': f'Service request {request_id} rejected'}, 200
-#         except Exception as e:
-#             db.session.rollback()
-#             return {'message': str(e)}, 500
+            service_request.service_status = "rejected"
+            db.session.commit()
+            return {'message': f'Service request {request_id} rejected'}, 200
+        except Exception as e:
+            db.session.rollback()
+            return {'message': str(e)}, 500
 
-# class CloseServiceRequestResource(Resource):
-#     """
-#     POST /api/service_requests/<int:request_id>/close
-#     This endpoint finalizes a service request by marking it as completed.
-#     You can also handle rating or remarks in the request body:
-#     {
-#       "customerRating": X,
-#       "customerRemark": "..."
-#     }
-#     """
-#     @auth_required('token')
-#     def post(self, request_id):
-#         try:
-#             data = request.get_json()
-#             rating = data.get("customerRating")
-#             remarks = data.get("customerRemark")
+class CloseServiceRequestResource(Resource):
+    """
+    POST /api/service_requests/<int:request_id>/close
+    This endpoint finalizes a service request by marking it as completed.
+    You can also handle rating or remarks in the request body:
+    {
+      "customerRating": X,
+      "customerRemark": "..."
+    }
+    """
+    @auth_required('token')
+    def post(self, request_id):
+        try:
+            data = request.get_json()
+            rating = data.get("customerRating")
+            remarks = data.get("customerRemark")
 
-#             service_request = ServiceRequest.query.get_or_404(request_id)
+            service_request = ServiceRequest.query.get_or_404(request_id)
 
-#             if service_request.service_status != "accepted":
-#                 return {'message': 'Cannot close a service request unless it is in "accepted" status'}, 400
+            if service_request.service_status != "accepted":
+                return {'message': 'Cannot close a service request unless it is in "accepted" status'}, 400
 
-#             service_request.service_status = "completed"
-#             service_request.date_of_completion = datetime.utcnow()
-#             service_request.customer_rating = rating
-#             service_request.customer_remarks = remarks
+            service_request.service_status = "completed"
+            service_request.date_of_completion = datetime.utcnow()
+            service_request.customer_rating = rating
+            service_request.customer_remarks = remarks
 
-#             db.session.commit()
-#             return {'message': f'Service request {request_id} closed successfully'}, 200
-#         except Exception as e:
-#             db.session.rollback()
-#             return {'message': str(e)}, 500
-# # In your resources.py or a central file where you register your APIs
+            db.session.commit()
+            return {'message': f'Service request {request_id} closed successfully'}, 200
+        except Exception as e:
+            db.session.rollback()
+            return {'message': str(e)}, 500
+# In your resources.py or a central file where you register your APIs
 
-# # Assuming 'api' is your Api() instance
-# api.add_resource(ServiceRequestListResource, '/service_requests')
-# api.add_resource(SingleServiceRequestResource, '/service_requests/<int:request_id>')
-# api.add_resource(AcceptServiceRequestResource, '/service_requests/<int:request_id>/accept')
-# api.add_resource(RejectServiceRequestResource, '/service_requests/<int:request_id>/reject')
-# api.add_resource(CloseServiceRequestResource, '/service_requests/<int:request_id>/close')
+# Assuming 'api' is your Api() instance
+api.add_resource(ServiceRequestListResource, '/service_requests')
+api.add_resource(SingleServiceRequestResource, '/service_requests/<int:request_id>')
+api.add_resource(AcceptServiceRequestResource, '/service_requests/<int:request_id>/accept')
+api.add_resource(RejectServiceRequestResource, '/service_requests/<int:request_id>/reject')
+api.add_resource(CloseServiceRequestResource, '/service_requests/<int:request_id>/close')
 
 # Ensure this resource is properly registered
 
@@ -557,4 +691,32 @@ class ServiceRequestResource(Resource):
             return {'message': str(e)}, 500
 
 # Add this at the bottom of the file
-api.add_resource(ServiceRequestResource, '/service-requests')
+api.add_resource(ServiceRequestResource, '/book-service')
+
+class ProfessionalServiceRequestsResource(Resource):
+    @auth_required('token')
+    def get(self, professional_id):
+        try:
+            service_requests = ServiceRequest.query.filter_by(professional_id=professional_id).all()
+            return marshal(service_requests, service_request_fields), 200
+        except Exception as e:
+            return {'message': str(e)}, 500
+
+api.add_resource(ProfessionalServiceRequestsResource, '/service_requests/professional/<int:professional_id>')
+from datetime import date
+
+class TodayServiceRequestsResource(Resource):
+    @auth_required('token')
+    def get(self, professional_id):
+        try:
+            today = date.today()
+            service_requests = ServiceRequest.query.filter(
+                ServiceRequest.professional_id == professional_id,
+                ServiceRequest.requested_date == today
+            ).all()
+            return marshal(service_requests, service_request_fields), 200
+        except Exception as e:
+            return {'message': str(e)}, 500
+
+api.add_resource(TodayServiceRequestsResource, '/service_requests/professional/<int:professional_id>/today')
+

@@ -41,77 +41,54 @@ def get_csv(task_id):
 def cache():
     return {"date": str(datetime.now())}
 
-@app.get("/protected")
-@auth_required("token")
-def protected():
-    return "You are in a protected route"
 
 @app.route("/login", methods=['POST'])
 def login():
-    data = request.get_json()  # getting the data from the request body and converting it to json
+    data = request.get_json()  # Getting the data from the request body
     email = data.get('email')
     password = data.get('password')
-    user = datastore.find_user(email=email)  # finding the user by email
+    user = datastore.find_user(email=email)  # Finding the user by email
+    
     if not email or not password:
-        return jsonify({'message': 'Email and password are required'}), 404
+        return jsonify({'message': 'Email and password are required'}), 400
     if user is None:
         return jsonify({'message': 'User not found'}), 404
     if verify_password(password, user.password):
-        return jsonify({"token": user.get_auth_token(), "email": user.email, "role": user.roles[0].name, "id": user.id}), 200
+        # Access roles as a list, assuming it's a many-to-many relationship
+        role = user.roles[0].name if user.roles else None  # Get the role name, or None if no roles
+
+        if role == 'customer':
+            customer = Customer.query.filter_by(user_id=user.id).first()
+            if customer:
+                return jsonify({
+                    "token": user.get_auth_token(),
+                    "email": user.email,
+                    "role": role,
+                    "user_id": user.id,
+                    "customer_id": customer.id,  # Directly include customer ID
+                    "customer_name": customer.name  # Include customer name
+                }), 200
+            else:
+                return jsonify({'message': 'Customer not found'}), 404
+        elif role == 'professional':
+            professional = ServiceProfessional.query.filter_by(user_id=user.id).first()
+            if professional:
+                return jsonify({
+                    "token": user.get_auth_token(),
+                    "email": user.email,
+                    "role": role,
+                    "user_id": user.id,
+                    "professional_id": professional.id,  # Directly include professional ID
+                    "professional_name": professional.name  # Include professional name
+                }), 200
+            else:
+                return jsonify({'message': 'Professional not found'}), 404
+        else:
+            
+            return jsonify({"token": user.get_auth_token(), "email": user.email, "role": user.roles[0].name, "id": user.id}), 200
+
+
     return jsonify({'message': 'Invalid credentials'}), 404
-
-@app.route("/register_customer", methods=['POST'])
-def register_customer():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
-    username = data.get('username')
-    name = data.get('full_name')
-    phone_no = data.get('phone_no')
-    gender = data.get('gender')
-    address = data.get('address')
-    pin_code = data.get('pin_code')
-    role = data.get('role')
-
-    # Validate input fields
-    if not email or not password or role != 'customer':
-        return jsonify({'message': 'Email, password, and the role "customer" are required'}), 400
-    if not name or not phone_no or not gender or not address or not pin_code:
-        return jsonify({'message': 'Full name, phone number, gender, address, and pin code are required'}), 400
-
-    # Check if the user already exists
-    user = datastore.find_user(email=email)
-    if user:
-        return jsonify({'message': 'User already exists'}), 400
-
-    # Create the customer user
-    try:
-        new_user = datastore.create_user(
-            email=email,
-            password=hash_password(password),
-            username=username,
-            roles=['customer']
-        )
-        db.session.add(new_user)
-        db.session.commit()
-
-        # Add additional details in the Customer table
-        customer = Customer(
-            user_id=new_user.id,
-            name=name,
-            phone_no=phone_no,
-            gender=gender,
-            address=address,
-            pin_code=pin_code,
-            email=email
-        )
-        db.session.add(customer)
-        db.session.commit()
-
-        return jsonify({'message': 'Customer successfully registered'}), 201
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'message': str(e)}), 500
 
 @app.route("/register_professional", methods=['POST'])
 def register_professional():
