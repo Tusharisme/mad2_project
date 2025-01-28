@@ -283,39 +283,48 @@ export default {
         </div>
 
         <!-- Edit Service Modal -->
-        <div
-          class="modal fade"
-          id="editServiceModal"
-          tabindex="-1"
-          aria-labelledby="editServiceLabel"
-          aria-hidden="true"
-        >
-          <div class="modal-dialog">
-            <div class="modal-content custom-modal">
-              <form @submit.prevent="editService">
-                <div class="modal-header">
-                  <h5 class="modal-title" id="editServiceLabel">Edit Service</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                  <input v-model="currentService.name" type="text" class="form-control mb-3" required />
-                  <input v-model="currentService.description" type="text" class="form-control mb-3" required />
-                  <input v-model="currentService.base_price" type="number" class="form-control mb-3" required />
-                  <input v-model="currentService.base_time_required" type="number" class="form-control mb-3" required />
-                  <input v-model="currentService.picture" type="file" class="form-control mb-3" accept="image/*" />
-                  <div v-if="currentService.picture_url" class="mt-2">
-                    <p>Current Picture:</p>
-                    <img :src="currentService.picture_url" alt="Service Picture" width="150" height="150" />
-                  </div>
-                </div>
-                <div class="modal-footer">
-                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                  <button type="submit" class="btn btn-custom">Save Changes</button>
-                </div>
-              </form>
-            </div>
-          </div>
+<div
+class="modal fade"
+id="editServiceModal"
+tabindex="-1"
+aria-labelledby="editServiceLabel"
+aria-hidden="true"
+>
+<div class="modal-dialog">
+  <div class="modal-content custom-modal">
+    <form @submit.prevent="editService">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editServiceLabel">Edit Service</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input v-model="currentService.name" type="text" class="form-control mb-3" required />
+        <input v-model="currentService.description" type="text" class="form-control mb-3" required />
+        <input v-model="currentService.base_price" type="number" class="form-control mb-3" required />
+        <input v-model="currentService.base_time_required" type="number" class="form-control mb-3" required />
+        
+        <!-- File Input for Image -->
+        <input 
+          type="file" 
+          class="form-control mb-3" 
+          accept="image/*"
+          @change="handleFileChange"  
+        />
+        
+        <div v-if="currentService.picture_url" class="mt-2">
+          <p>Current Picture:</p>
+          <img :src="currentService.picture_url" alt="Service Picture" width="150" height="150" />
         </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="submit" class="btn btn-custom">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+</div>
+      </div>
       </div>
     </div>
   `,
@@ -404,6 +413,7 @@ export default {
 
         if (response.ok) {
           this.fetchServices(); // Refresh the services list
+          $("#addServiceModal").modal("hide"); // Close the modal
           this.resetNewService();
         } else {
           console.error("Failed to add service");
@@ -412,6 +422,15 @@ export default {
         console.error("Error adding service:", error);
       }
     },
+    // Handle file input change and store the file object
+    handleFileChange(event) {
+      const file = event.target.files[0]; // Get the first file selected
+      if (file) {
+        this.currentService.picture = file; // Store the file object in currentService.picture
+      }
+    },
+
+    // Your existing editService method...
     async editService() {
       const formData = new FormData();
       formData.append("name", this.currentService.name);
@@ -422,6 +441,7 @@ export default {
         this.currentService.base_time_required
       );
 
+      // Append the actual file object to formData
       if (this.currentService.picture) {
         formData.append("picture", this.currentService.picture);
       }
@@ -441,6 +461,7 @@ export default {
         if (response.ok) {
           console.log("Service edited successfully");
           this.fetchServices(); // Refresh the services list
+          $("#editServiceModal").modal("hide"); // Close the modal
         } else {
           console.error("Failed to edit service");
         }
@@ -448,6 +469,7 @@ export default {
         console.error("Error editing service:", error);
       }
     },
+
     resetNewService() {
       this.newService = {
         name: "",

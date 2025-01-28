@@ -65,43 +65,48 @@ const router = new VueRouter({
   routes,
 });
 router.beforeEach((to, from, next) => {
+  // Try to restore user session from localStorage if not logged in
+  if (!store.state.loggedIn) {
+    store.commit("setUser");
+  }
+
   const { loggedIn, lastActivity, role } = store.state;
   const sessionTimeout = 30 * 60 * 1000; // 30 minutes timeout
 
   if (lastActivity && Date.now() - lastActivity > sessionTimeout) {
     // Session expired
     alert("Your session has expired. Please log in again.");
-    store.commit("logout"); // Clear session
+    store.commit("logout");
+    next({ path: "/login" });
+    return;
+  }
 
-    // Programmatically redirect after logout
-    next({ path: "/login" }); // Redirect to login
-  } else {
-    // Update last activity if session is valid
-    if (loggedIn) {
-      store.commit("setLastActivity");
+  // Update last activity if session is valid
+  if (loggedIn) {
+    store.commit("setLastActivity");
+  }
+
+  if (to.matched.some((record) => record.meta.requiresLogin)) {
+    if (!loggedIn) {
+      next({ path: "/login" });
+      return;
     }
 
-    if (to.matched.some((record) => record.meta.requiresLogin)) {
-      // Check if login is required
-      if (!loggedIn) {
-        next({ path: "/login" });
-      } else {
-        // Check if role-specific route is being accessed
-        if (to.meta.role && to.meta.role !== role) {
-          // Redirect to the appropriate dashboard based on the role
-          if (role === "customer") {
-            next({ path: "/customer_dashboard" });
-          } else if (role === "admin") {
-            next({ path: "/admin_dashboard" });
-          }
-        } else {
-          next(); // Proceed to the requested route
-        }
+    // Check if role-specific route is being accessed
+    if (to.meta.role && to.meta.role !== role) {
+      // Redirect to the appropriate dashboard based on the role
+      if (role === "customer") {
+        next({ path: "/customer_dashboard" });
+      } else if (role === "admin") {
+        next({ path: "/admin_dashboard" });
+      } else if (role === "professional") {
+        next({ path: "/professional_dashboard" });
       }
-    } else {
-      next(); // If the route does not require login
+      return;
     }
   }
+
+  next();
 });
 
 export default router;

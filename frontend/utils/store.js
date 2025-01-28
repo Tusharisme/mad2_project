@@ -1,3 +1,5 @@
+import router from "./router.js";
+
 // const servicesModule = {
 //   state: {
 //     services: [],
@@ -133,25 +135,33 @@ const store = new Vuex.Store({
   mutations: {
     setUser(state, user) {
       try {
+        // If no user is passed, try to get from localStorage
+        if (!user) {
+          const storedUser = localStorage.getItem("user");
+          if (storedUser) {
+            user = JSON.parse(storedUser);
+          }
+        }
+
         if (user && user.token) {
           state.auth_token = user.token;
           state.role = user.role;
           state.loggedIn = true;
-          state.user_id = user.id; // Ensure user_id is set (from backend)
+          state.user_id = user.id;
 
           // Set the correct customer/professional data based on role
           if (user.role === "professional") {
             state.professional = {
               id: user.professional_id,
-              name: user.professional_name, // Store name
+              name: user.professional_name,
             };
-            state.customer = null; // Clear customer data if not a customer
+            state.customer = null;
           } else if (user.role === "customer") {
             state.customer = {
               id: user.customer_id,
-              name: user.customer_name, // Store name
+              name: user.customer_name,
             };
-            state.professional = null; // Clear professional data if not a professional
+            state.professional = null;
           }
 
           state.lastActivity = Date.now();
@@ -169,6 +179,7 @@ const store = new Vuex.Store({
       state.customer = null;
       state.lastActivity = null;
       localStorage.removeItem("user");
+      router.push("/");
     },
     setLastActivity(state) {
       state.lastActivity = Date.now();

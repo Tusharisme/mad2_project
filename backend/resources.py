@@ -1,9 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import cloudinary
+from flask_login import current_user
 from flask_restful import Resource, Api, fields, marshal, marshal_with
 from backend.models import ProfessionalService, ServiceRequest, db, Customer, ServiceProfessional, User, Role, UserRoles, Service
 from flask import current_app as app, request, jsonify
 from flask_security import auth_required, hash_password
+from sqlalchemy.orm import joinedload
 
 api = Api(prefix='/api')
 cache=app.cache
@@ -321,7 +323,7 @@ class ServiceResource(Resource):
 
             # Handle picture upload if included
             picture = request.files.get('picture')  # Get the uploaded picture (if any)
-            image_url = None  # Default to None if no picture
+            print(f"Picture received: {picture}")  # Check if the picture is being received
 
             if picture:
                 try:
@@ -330,18 +332,16 @@ class ServiceResource(Resource):
                         picture,
                         folder="services"  # Folder where images will be stored in Cloudinary
                     )
-                    image_url = upload_result['secure_url']  # Get the URL of the uploaded image
-
-                    # Update the service image URL
-                    service.image_url = image_url
-
+                    # Get the URL of the uploaded image
+                    service.image_url = upload_result['secure_url']
                 except Exception as e:
                     return {'message': f"Error uploading image: {str(e)}"}, 500
 
             # Commit the changes to the database
             db.session.commit()
 
-            return {'message': 'Service updated successfully', 'image_url': image_url or service.image_url}, 200
+            # Return the updated service details, including the image URL
+            return {'message': 'Service updated successfully', 'image_url': service.image_url}, 200
 
         except Exception as e:
             db.session.rollback()  # Rollback any changes if there's an error
@@ -501,7 +501,7 @@ class ServiceRequestListResource(Resource):
                 service_id=data['service_id'],
                 customer_id=data['customer_id'],
                 professional_id=data['professional_id'],
-                date_of_request=datetime.utcnow(),
+                date_of_request=datetime.now(timezone.utc),
                 service_status="requested",
                 remarks=data.get('remarks'),
                 requested_date=data.get('requested_date'),
@@ -632,7 +632,7 @@ class CloseServiceRequestResource(Resource):
                 return {'message': 'Cannot close a service request unless it is in "accepted" status'}, 400
 
             service_request.service_status = "completed"
-            service_request.date_of_completion = datetime.utcnow()
+            service_request.date_of_completion = datetime.now(timezone.utc)
             service_request.customer_rating = rating
             service_request.customer_remarks = remarks
 
@@ -674,7 +674,7 @@ class ServiceRequestResource(Resource):
                 service_id=data['service_id'],
                 customer_id=data['customer_id'],
                 professional_id=data['professional_id'],
-                date_of_request=datetime.utcnow(),
+                date_of_request=datetime.now(timezone.utc),
                 service_status="requested",
                 requested_date=requested_date,  # Use converted date
                 requested_time=requested_time,  # Use converted time
@@ -692,12 +692,19 @@ class ServiceRequestResource(Resource):
 
 # Add this at the bottom of the file
 api.add_resource(ServiceRequestResource, '/book-service')
+from sqlalchemy.orm import joinedload
 
 class ProfessionalServiceRequestsResource(Resource):
     @auth_required('token')
     def get(self, professional_id):
         try:
-            service_requests = ServiceRequest.query.filter_by(professional_id=professional_id).all()
+            service_requests = ServiceRequest.query\
+                .filter_by(professional_id=professional_id)\
+                .options(joinedload(ServiceRequest.service))\
+                .options(joinedload(ServiceRequest.customer))\
+                .all()
+            print(service_requests,"service_requests") 
+            print(service_request_fields,"service_request_fields")          
             return marshal(service_requests, service_request_fields), 200
         except Exception as e:
             return {'message': str(e)}, 500
@@ -720,3 +727,39 @@ class TodayServiceRequestsResource(Resource):
 
 api.add_resource(TodayServiceRequestsResource, '/service_requests/professional/<int:professional_id>/today')
 
+# class ProfessionalServiceRequests(Resource):
+#     @auth_required('token')
+#     def get(self, professional_id):
+#         try:
+#             # Verify the professional exists and matches current user
+#             if str(current_user.id) != str(professional_id):
+#                 return {"message": "Unauthorized access"}, 403
+
+#             # Fetch all service requests for this professional
+#             service_requests = ServiceRequest.query.filter_by(professional_id=professional_id).all()
+            
+#             # Format the response data
+#             requests_data = []
+#             for request in service_requests:
+#                 # Get customer details
+#                 customer = User.query.get(request.customer_id)
+#                 # Get service details
+#                 service = Service.query.get(request.service_id)
+                
+#                 requests_data.append({
+#                     "id": request.id,
+#                     "customer_name": f"{customer.name}" if customer else "Unknown Customer",
+#                     "service_name": service.name if service else "Unknown Service",
+#                     "requested_date": request.requested_date.isoformat() if request.requested_date else None,
+#                     "completion_date": request.completion_date.isoformat() if request.completion_date else None,
+#                     "service_status": request.service_status,
+#                     "completion_notes": request.completion_notes
+#                 })
+
+#             return jsonify(requests_data)
+
+#         except Exception as e:
+#             db.session.rollback()
+#             return {"message": f"Error fetching service requests: {str(e)}"}, 500
+        
+# api.add_resource(ProfessionalServiceRequests, '/api/professional/<int:professional_id>/service-requests')
