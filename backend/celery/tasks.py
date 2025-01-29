@@ -3,6 +3,8 @@ import time
 import flask_excel
 import os
 from backend.models import Service
+from backend.celery.mail_services import send_email
+
 
 @shared_task(ignore_result=False)
 def add(x, y):
@@ -30,3 +32,7 @@ def create_csv():
         f.write(csv_out.data)
     
     return output_file
+
+@shared_task(ignore_result=True)
+def email_reminder(to,subject,content):
+    send_email(to,subject,content)

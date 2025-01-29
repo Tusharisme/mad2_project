@@ -61,6 +61,24 @@ service_fields = {
     'image_url': fields.String,
 }
 
+# Define a field structure for marshalling service request data
+service_request_fields = {
+    'id': fields.Integer,
+    'service_id': fields.Integer,
+    'customer_id': fields.Integer,
+    'professional_id': fields.Integer,
+    'service_status': fields.String,
+    'date_of_request': fields.DateTime,
+    'date_of_completion': fields.DateTime,
+    'remarks': fields.String,
+    'rating': fields.Integer,
+    'customer_rating': fields.Integer,
+    'customer_remarks': fields.String,
+    'requested_date': fields.String,
+    'requested_time': fields.String,
+    'customer': fields.Nested(customer_fields),  # Add nested customer details
+    'service': fields.Nested(service_fields),    # Add nested service details
+}
 
 class CustomerResource(Resource):
     @auth_required('token')
@@ -202,6 +220,7 @@ class AllServiceProfessionalsResource(Resource):
                 block_status=data.get('block_status', False)
             )
             db.session.add(new_professional)
+            
             db.session.commit()
             return {'message': 'Service Professional created successfully'}, 201
         except Exception as e:
@@ -448,22 +467,6 @@ api.add_resource(AllServicesResource, '/services')
 # from backend.models import ServiceRequest, db
 # from datetime import datetime
 
-# Define a field structure for marshalling service request data
-service_request_fields = {
-    'id': fields.Integer,
-    'service_id': fields.Integer,
-    'customer_id': fields.Integer,
-    'professional_id': fields.Integer,
-    'service_status': fields.String,
-    'date_of_request': fields.DateTime,
-    'date_of_completion': fields.DateTime,
-    'remarks': fields.String,
-    'rating': fields.Integer,
-    'customer_rating': fields.Integer,
-    'customer_remarks': fields.String,
-    'requested_date': fields.String,
-    'requested_time': fields.String,
-}
 
 class ServiceRequestListResource(Resource):
     """
@@ -698,13 +701,14 @@ class ProfessionalServiceRequestsResource(Resource):
     @auth_required('token')
     def get(self, professional_id):
         try:
-            service_requests = ServiceRequest.query\
-                .filter_by(professional_id=professional_id)\
-                .options(joinedload(ServiceRequest.service))\
-                .options(joinedload(ServiceRequest.customer))\
+            # Fetch service requests for the professional and include customer and service details
+            service_requests = ServiceRequest.query \
+                .filter_by(professional_id=professional_id) \
+                .options(joinedload(ServiceRequest.service)) \
+                .options(joinedload(ServiceRequest.customer)) \
                 .all()
-            print(service_requests,"service_requests") 
-            print(service_request_fields,"service_request_fields")          
+            
+            # Marshal and return the data
             return marshal(service_requests, service_request_fields), 200
         except Exception as e:
             return {'message': str(e)}, 500

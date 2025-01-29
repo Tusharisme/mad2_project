@@ -164,7 +164,7 @@ export default {
               />
               <h5 class="card-title">{{ service.title }}</h5>
               <p class="card-text">{{ service.description }}</p>
-              <p class="text-muted">Starting at \${{ service.basePrice }}</p>
+              <p class="text-muted">Starting at \₹{{ service.basePrice }}</p>
               <button 
                 class="btn btn-primary btn-sm mt-3" 
                 @click="viewProfessionals(service.id)"
@@ -226,7 +226,7 @@ export default {
   methods: {
     getCustomerName() {
       const user = JSON.parse(localStorage.getItem("user"));
-      return user ? user.name : "Customer"; // Fallback to "Customer" if not found
+      return user ? user.customer_name : "Customer"; // Fallback to "Customer" if not found
     },
     async fetchServices() {
       try {
@@ -237,6 +237,7 @@ export default {
             "Authentication-Token": this.$store.state.auth_token || "",
           },
         });
+        // console.log(response.json());
 
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
@@ -248,10 +249,11 @@ export default {
           this.services = data.map((service) => ({
             id: service.id,
             title: service.name, // Map 'name' to 'title'
-            image: service.image || "/images/default-service.jpg", // Default image if none provided
+            image: service.image_url, // Default image if none provided
             basePrice: service.base_price, // Add base price if needed
             description: service.description, // Add description if needed
           }));
+          console.log(this.services);
           console.log("Transformed services:", this.services); // Debugging purposes
         } else {
           console.warn("No services found in response:", data);

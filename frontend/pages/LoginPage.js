@@ -12,11 +12,13 @@ export default {
           <form @submit.prevent="submitLogin">
             <div class="mb-3">
               <label for="email" class="form-label" style="text-decoration: underline;"><b>Registered Email ID</b></label>
-              <input type="email" class="form-control" v-model="email" id="email" aria-describedby="emailHelp" />
+              <input type="email" class="form-control" v-model="email" id="email" aria-describedby="emailHelp" autocomplete="email" 
+ />
             </div>
             <div class="mb-3">
               <label for="pwd" class="form-label" style="text-decoration: underline;"><b>Password</b></label>
-              <input type="password" v-model="password" class="form-control" id="pwd" />
+              <input type="password" v-model="password" class="form-control" id="pwd" autocomplete="current-password" 
+/>
             </div>
             <button type="submit" class="btn btn-success-custom">Login</button><br /><br />
             <router-link to="/register_customer" class="btn btn-link"><b>Create Account?</b></router-link>

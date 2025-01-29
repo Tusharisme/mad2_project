@@ -78,7 +78,7 @@ def setup_roles_and_users(app):
                     base_price=100,
                     base_time_required="1 hour",
                     description="Basic plumbing services",
-                    image_url=None
+                    image_url="https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736747109/demo_services/rqdhk8o8x7yxggeshjgh.jpg"
                 )
                 db.session.add(plumbing_service)
                 db.session.commit()
@@ -122,7 +122,7 @@ def setup_roles_and_users(app):
                     base_price=150,
                     base_time_required="1.5 hours",
                     description="Basic electrical services",
-                    image_url=None
+                    image_url="https://res.cloudinary.com/dfcpm3kmc/image/upload/v1736746813/demo_services/upoxvwc7bjxdlwp3hcha.jpg"
                 )
                 db.session.add(electrical_service)
                 db.session.commit()

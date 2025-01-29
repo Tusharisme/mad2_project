@@ -32,7 +32,6 @@ export default {
             <tr>
               <th>Request ID</th>
               <th>Customer Name</th>
-              <th>Service Type</th>
               <th>Requested Date</th>
               <th>Status</th>
               <th>Actions</th>
@@ -41,8 +40,7 @@ export default {
           <tbody>
             <tr v-for="request in pendingRequests" :key="request.id">
               <td>{{ request.id }}</td>
-              <td>{{ request.customer_name }}</td>
-              <td>{{ request.service_name }}</td>
+    <td>{{ request.customer.name }}</td> <!-- Update this line -->
               <td>{{ formatDate(request.requested_date) }}</td>
               <td>{{ request.service_status }}</td>
               <td>
@@ -68,7 +66,6 @@ export default {
             <tr>
               <th>Request ID</th>
               <th>Customer Name</th>
-              <th>Service Type</th>
               <th>Requested Date</th>
               <th>Status</th>
               <th>Actions</th>
@@ -77,8 +74,7 @@ export default {
           <tbody>
             <tr v-for="request in acceptedRequests" :key="request.id">
               <td>{{ request.id }}</td>
-              <td>{{ request.customer_name }}</td>
-              <td>{{ request.service_name }}</td>
+    <td>{{ request.customer.name }}</td> <!-- Update this line -->
               <td>{{ formatDate(request.requested_date) }}</td>
               <td>{{ request.service_status }}</td>
               <td>
@@ -104,7 +100,6 @@ export default {
             <tr>
               <th>Request ID</th>
               <th>Customer Name</th>
-              <th>Service Type</th>
               <th>Completion Date</th>
               <th>Status</th>
               <th>Rating</th>
@@ -113,9 +108,8 @@ export default {
           <tbody>
             <tr v-for="request in completedRequests" :key="request.id">
               <td>{{ request.id }}</td>
-              <td>{{ request.customer_name }}</td>
-              <td>{{ request.service_name }}</td>
-              <td>{{ formatDate(request.completion_date) }}</td>
+              <td>{{ request.customer.name }}</td> <!-- Update this line -->
+                <td>{{ formatDate(request.date_of_completion) }}</td>
               <td>{{ request.service_status }}</td>
               <td>{{ request.rating || 'Not rated yet' }}</td>
             </tr>
@@ -136,7 +130,6 @@ export default {
             <tr>
               <th>Request ID</th>
               <th>Customer Name</th>
-              <th>Service Type</th>
               <th>Requested Date</th>
               <th>Status</th>
             </tr>
@@ -144,8 +137,7 @@ export default {
           <tbody>
             <tr v-for="request in rejectedRequests" :key="request.id">
               <td>{{ request.id }}</td>
-              <td>{{ request.customer_name }}</td>
-              <td>{{ request.service_name }}</td>
+              <td>{{ request.customer.name }}</td>
               <td>{{ formatDate(request.requested_date) }}</td>
               <td>{{ request.service_status }}</td>
             </tr>
@@ -166,10 +158,9 @@ export default {
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
-            <p><strong>Service Name:</strong> {{ currentRequest?.service_name }}</p>
-            <p><strong>Customer Name:</strong> {{ currentRequest?.customer_name }}</p>
+            <p><strong>Customer Name:</strong> {{ currentRequest?.customer.name }}</p>
             <p><strong>Customer ID:</strong> {{ currentRequest?.customer_id }}</p>
-            <p><strong>Address:</strong> {{ currentRequest?.address }}</p>
+            <p><strong>Address:</strong> {{ currentRequest?.customer.address }}</p>
             <p><strong>Requested Date:</strong> {{ formatDate(currentRequest?.requested_date) }}</p>
             <p><strong>Requested Time:</strong> {{ currentRequest?.requested_time }}</p>
           </div>
@@ -183,29 +174,45 @@ export default {
     </div>
 
     <!-- Complete Service Modal -->
-    <div class="modal fade" id="completeServiceModal" tabindex="-1">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Complete Service Request</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <div class="mb-3">
-              <label class="form-label">Completion Notes:</label>
-              <textarea class="form-control" v-model="completionNotes" rows="3"></textarea>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="button" class="btn btn-primary" @click="completeService">
-              Mark as Complete
-            </button>
-          </div>
+<div class="modal fade" id="completeServiceModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content custom-modal">
+      <div class="modal-header">
+        <h5 class="modal-title">Close Service Request</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p><strong>Service Name:</strong> <span>{{ modalServiceName }}</span></p>
+        <p><strong>Customer Name:</strong> <span>{{ modalCustomerName }}</span></p>
+        <p><strong>Customer ID:</strong> <span>{{ modalCustomerId }}</span></p>
+        <p><strong>Address:</strong> <span>{{ modalAddress }}</span></p>
+
+        <div class="mb-3">
+          <label class="form-label">Customer Rating (1 to 5):</label>
+          <input type="number" class="form-control" v-model="customerRating" step="0.1" min="1" max="5" required />
         </div>
+
+        <div class="mb-3">
+          <label class="form-label">Remarks:</label>
+          <textarea class="form-control" v-model="customerRemark" rows="2" required></textarea>
+        </div>
+
+        <input type="hidden" v-model="requestId" />
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Close
+        </button>
+        <button type="button" class="btn btn-custom" @click="completeService">
+          Submit
+        </button>
       </div>
     </div>
   </div>
+</div>
+
+</div>
+
 `,
 
   data() {
@@ -214,10 +221,17 @@ export default {
       pendingRequests: [],
       acceptedRequests: [],
       completedRequests: [],
+      rejectedRequests: [],
       currentRequest: null,
       completionNotes: "",
-      acceptRejectModal: null,
-      completeModal: null,
+      acceptRejectModalVisible: false,
+      modalServiceName: "",
+      modalCustomerName: "",
+      modalCustomerId: "",
+      modalAddress: "",
+      customerRating: "",
+      customerRemark: "",
+      requestId: "",
     };
   },
 
@@ -276,12 +290,22 @@ export default {
       }
     },
     formatDate(dateString) {
-      return new Date(dateString).toLocaleDateString();
+      if (!dateString) return "Invalid date";
+
+      // Remove microseconds and milliseconds
+      const formattedDateString = dateString.split(".")[0];
+
+      const date = new Date(formattedDateString);
+      if (isNaN(date)) return "Invalid date"; // Check if the date is valid
+
+      // Get the day, month, and year in the correct format
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
+      const year = date.getFullYear();
+
+      return `${day}-${month}-${year}`; // Return date in DD-MM-YYYY format
     },
-    openAcceptRejectModal(request) {
-      this.currentRequest = request;
-      this.acceptRejectModal.show();
-    },
+
     async acceptRequest(requestId) {
       try {
         const response = await fetch(
@@ -330,13 +354,24 @@ export default {
     },
     openCompleteModal(request) {
       this.currentRequest = request;
-      this.completionNotes = "";
-      this.completeModal.show();
+      this.modalServiceName = request.service?.name || "N/A";
+      this.modalCustomerName = request.customer?.name || "N/A";
+      this.modalCustomerId = request.customer?.id || "N/A";
+      this.modalAddress = request.customer?.address || "N/A";
+      this.customerRating = null;
+      this.customerRemark = "";
+      this.requestId = request.id;
+
+      let modal = new bootstrap.Modal(
+        document.getElementById("completeServiceModal")
+      );
+      modal.show();
     },
+
     async completeService() {
       try {
         const response = await fetch(
-          `/api/service_requests/${this.currentRequest.id}/close`,
+          `/api/service_requests/${this.requestId}/close`,
           {
             method: "POST",
             headers: {
@@ -344,20 +379,25 @@ export default {
               "Authentication-Token": this.$store.state.auth_token,
             },
             body: JSON.stringify({
-              completion_notes: this.completionNotes,
+              customerRating: this.customerRating,
+              customerRemark: this.customerRemark,
             }),
           }
         );
 
         if (!response.ok) throw new Error("Failed to complete service");
 
-        this.completeModal.hide();
-        await this.fetchServiceRequests();
         alert("Service marked as complete successfully");
+        this.fetchServiceRequests();
+        let modal = bootstrap.Modal.getInstance(
+          document.getElementById("completeServiceModal")
+        );
+        modal.hide();
       } catch (error) {
         this.handleError("Failed to complete service", error);
       }
     },
+
     async updateRequestStatus(endpoint, successMessage) {
       try {
         const response = await fetch(endpoint, {
