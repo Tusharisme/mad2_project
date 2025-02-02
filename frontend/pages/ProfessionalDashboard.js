@@ -260,6 +260,27 @@ export default {
     async fetchServiceRequests() {
       try {
         const professionalId = this.$store.state.professional.id;
+
+        const profResponse = await fetch(
+          `/api/service_professionals/${professionalId}`, // Changed from profId to professionalId
+          {
+            headers: {
+              "Authentication-Token": this.$store.state.auth_token,
+            },
+          }
+        );
+        const profData = await profResponse.json();
+
+        if (profData.block_status) {
+          this.pendingRequests = [];
+          this.acceptedRequests = [];
+          this.completedRequests = [];
+          alert(
+            "Your account is currently blocked. You cannot receive new service requests."
+          );
+          return;
+        }
+
         const response = await fetch(
           `/api/service_requests/professional/${professionalId}`,
           {
@@ -269,7 +290,6 @@ export default {
             },
           }
         );
-
         if (!response.ok) throw new Error("Failed to fetch service requests");
 
         const requests = await response.json();

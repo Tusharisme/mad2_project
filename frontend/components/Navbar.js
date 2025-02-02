@@ -19,7 +19,12 @@ export default {
           <i class="fa-solid fa-bars"></i>
         </button>
         <ul class="dropdown-menu" aria-labelledby="adminActions">
-          <router-link class="dropdown-item" to="/admin_dashboard">Dashboard</router-link>
+          <!-- Hide Dashboard option if already on /admin_dashboard -->
+          <router-link 
+            v-if="$route.path !== '/admin_dashboard'"
+            class="dropdown-item" 
+            to="/admin_dashboard">Dashboard</router-link>
+          <router-link class="dropdown-item" to="/searchAdmin">Search</router-link>
           <router-link class="dropdown-item" to="/services">Manage Services</router-link>
           <router-link class="dropdown-item" to="/customers">Manage Customers</router-link>
           <router-link class="dropdown-item" to="/professionals">Manage Professionals</router-link>
@@ -43,9 +48,14 @@ export default {
           <i class="fa-solid fa-bars"></i>
         </button>
         <ul class="dropdown-menu" aria-labelledby="customerActions">
+          <!-- Hide Dashboard option if already on /customer_dashboard -->
+          <router-link 
+            v-if="$route.path !== '/customer_dashboard'"
+            class="dropdown-item" 
+            to="/customer_dashboard">Dashboard</router-link>
           <router-link class="dropdown-item" to="/profile">Profile</router-link>
-          <router-link class="dropdown-item" to="/search">Search Services</router-link>
-          <router-link class="dropdown-item" to="/service_history">Service History</router-link>
+          <router-link class="dropdown-item" to="/searchCustomer">Search Services</router-link>
+          <router-link class="dropdown-item" to="/service_history_customer">Service History</router-link>
           <router-link class="dropdown-item" to="/logistics">Logistics</router-link>
           <router-link class="dropdown-item" to="/payment">Payment</router-link>
         </ul>
@@ -68,8 +78,13 @@ export default {
           <i class="fa-solid fa-bars"></i>
         </button>
         <ul class="dropdown-menu" aria-labelledby="professionalActions">
+          <!-- Hide Dashboard option if already on /professional_dashboard -->
+          <router-link 
+            v-if="$route.path !== '/professional_dashboard'"
+            class="dropdown-item" 
+            to="/professional_dashboard">Dashboard</router-link>
           <router-link class="dropdown-item" to="/profile">Profile</router-link>
-          <router-link class="dropdown-item" to="/search_customers">Search Customers</router-link>
+          <router-link class="dropdown-item" to="/searchProfessional">Search Customers</router-link>
           <router-link class="dropdown-item" to="/service_history">Service History</router-link>
           <router-link class="dropdown-item" to="/logistics">Logistics</router-link>
           <router-link class="dropdown-item" to="/payment">Payment</router-link>

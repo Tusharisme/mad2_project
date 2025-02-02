@@ -3,7 +3,7 @@ import cloudinary
 from flask_login import current_user
 from flask_restful import Resource, Api, fields, marshal, marshal_with
 from backend.models import ProfessionalService, ServiceRequest, db, Customer, ServiceProfessional, User, Role, UserRoles, Service
-from flask import current_app as app, request, jsonify
+from flask import abort, current_app as app, request, jsonify, session
 from flask_security import auth_required, hash_password
 from sqlalchemy.orm import joinedload
 
@@ -59,6 +59,8 @@ service_fields = {
     'base_time_required': fields.String,
     'description': fields.String,
     'image_url': fields.String,
+    'average_rating': fields.Float
+
 }
 
 # Define a field structure for marshalling service request data
@@ -423,28 +425,32 @@ class ModifyProfessionalStatusResource(Resource):
             return {"message": f"Error updating professional status: {str(e)}"}, 500  # Use plain dict
 
 class ProfessionalsByServiceResource(Resource):
-    # @auth_required('token')
+    @auth_required('token')
     @marshal_with(service_professional_fields)
     def get(self, service_id):
         try:
-            print(f"Fetching professionals for service_id: {service_id}")  # Debug log
+            print(f"Fetching professionals for service_id: {service_id}")
             professionals = (
-    ServiceProfessional.query
-    .join(ProfessionalService, ServiceProfessional.id == ProfessionalService.professional_id)
-    .join(Service, ProfessionalService.service_id == Service.id)
-    .filter(Service.id == service_id)
-    .all()
-)
-
-            print(professionals)  # Debug log
-            if not professionals:
+                ServiceProfessional.query
+                .join(ProfessionalService, ServiceProfessional.id == ProfessionalService.professional_id)
+                .join(Service, ProfessionalService.service_id == Service.id)
+                .filter(
+                    Service.id == service_id,
+                    ServiceProfessional.verified_status == "approved",
+                    ServiceProfessional.block_status == False
+                )
+                .all()
+            )
+            print(professionals)
+            if professionals==[]:
                 return {'message': 'No professionals found for this service.'}, 404
+                
             return professionals, 200
+            
         except Exception as e:
-            print(f"Error in ProfessionalsByServiceResource: {e}")  # Debug log
+            print(f"Error in ProfessionalsByServiceResource: {e}")
             return {'message': str(e)}, 500
- 
-        
+
 api.add_resource(ProfessionalsByServiceResource, '/professionals-by-service/<int:service_id>')
 
 # Register the API route
@@ -660,12 +666,18 @@ class ServiceRequestResource(Resource):
     def post(self):
         try:
             data = request.get_json()
-            print("Received data:", data)  # Debug log
-
             required_fields = ['professional_id', 'service_id', 'customer_id', 'requested_date', 'requested_time']
             for field in required_fields:
                 if field not in data:
                     return {'message': f'Missing {field} field'}, 400
+            customer = Customer.query.get(data['customer_id'])
+            professional = ServiceProfessional.query.get(data['professional_id'])
+
+            # Check if either party is blocked
+            if customer.is_blocked:
+                return {'message': 'Customer account is blocked'}, 403
+            if professional.block_status:
+                return {'message': 'Professional account is blocked'}, 403
 
             # Convert requested_date to a datetime object
             requested_date = datetime.strptime(data['requested_date'], '%Y-%m-%d').date()
@@ -767,3 +779,321 @@ api.add_resource(TodayServiceRequestsResource, '/service_requests/professional/<
 #             return {"message": f"Error fetching service requests: {str(e)}"}, 500
         
 # api.add_resource(ProfessionalServiceRequests, '/api/professional/<int:professional_id>/service-requests')
+
+class CustomerBlockResource(Resource):
+    @auth_required('token')
+    def post(self, customer_id, action):
+        try:
+            # Validate action
+            if action not in ['block', 'unblock']:
+                return {'message': 'Invalid action. Use "block" or "unblock".'}, 400
+
+            # Fetch customer
+            customer = Customer.query.get_or_404(customer_id)
+
+            # Update block status
+            customer.is_blocked = (action == 'block')
+            db.session.commit()
+
+            return {
+                'message': f'Customer successfully {action}ed',
+                'customer_id': customer_id,
+                'is_blocked': customer.is_blocked
+            }, 200
+
+        except Exception as e:
+            db.session.rollback()
+            # Log the actual error internally instead of exposing it to the client
+            app.logger.error(f"Error updating customer block status: {str(e)}")
+            return {'message': 'An internal error occurred. Please try again later.'}, 500
+
+# Add these routes to your existing routes
+api.add_resource(
+    CustomerBlockResource, 
+    '/customers/<string:action>/<int:customer_id>'
+)
+
+class CustomerStatusResource(Resource):
+    @auth_required('token')
+    def get(self, customer_id):
+        try:
+            customer = Customer.query.get_or_404(customer_id)
+            return {
+                'id': customer.id,
+                'is_blocked': customer.is_blocked
+            }
+        except Exception as e:
+            return {'message': str(e)}, 500
+        
+api.add_resource(CustomerStatusResource, '/customers/<int:customer_id>/status')
+
+class SearchResource(Resource):
+    @auth_required('token')
+    def get(self):
+        try:
+            entity = request.args.get('entity')
+            query = request.args.get('query', '')
+            pincode = request.args.get('pincode')
+            rating = request.args.get('rating')
+            condition = request.args.get('condition')
+
+            # Base query starting with professionals
+            base_query = (
+                ServiceProfessional.query
+                .join(ProfessionalService)
+                .join(Service)
+                .filter(ServiceProfessional.verified_status == "approved")
+                .filter(ServiceProfessional.block_status == False)
+            )
+
+            if entity == 'service':
+                # Search by service name
+                results = (
+                    Service.query
+                    .filter(Service.name.ilike(f'%{query}%'))
+                    .all()
+                )
+                return marshal(results, service_fields)
+
+            elif entity == 'pincode':
+                # Search by pincode
+                results = (
+                    base_query
+                    .filter(ServiceProfessional.pin_code == pincode)
+                    .with_entities(Service)
+                    .distinct()
+                    .all()
+                )
+                return marshal(results, service_fields)
+
+            elif entity == 'rating':
+                # Search by rating
+                rating = float(rating)
+                if condition == 'high':
+                    results = (
+                        base_query
+                        .filter(ServiceProfessional.average_rating >= rating)
+                        .with_entities(Service)
+                        .distinct()
+                        .all()
+                    )
+                else:
+                    results = (
+                        base_query
+                        .filter(ServiceProfessional.average_rating <= rating)
+                        .with_entities(Service)
+                        .distinct()
+                        .all()
+                    )
+                return marshal(results, service_fields)
+
+            return {'message': 'Invalid search parameters'}, 400
+
+        except Exception as e:
+            print(f"Search error: {str(e)}")
+            return {'message': str(e)}, 500
+
+class PincodesResource(Resource):
+    @auth_required('token')
+    def get(self):
+        try:
+            # Get unique pincodes from professionals
+            pincodes = db.session.query(
+                ServiceProfessional.pin_code
+            ).distinct().all()
+            
+            # Convert tuple of tuples to list
+            pincode_list = [pin[0] for pin in pincodes if pin[0]]
+            return sorted(pincode_list)
+            
+        except Exception as e:
+            return {'message': str(e)}, 500
+
+
+# Add these resources to your API
+api.add_resource(SearchResource, '/search')
+api.add_resource(PincodesResource, '/pincodes')
+
+class SearchAdminResource(Resource):
+    def get(self):
+        try:
+            # Get query parameters
+            entity = request.args.get("entity")
+            criteria = request.args.get("criteria")
+            query = request.args.get("query")
+            rating_filter = request.args.get("rating")  # For rating filter
+            rating_condition = request.args.get("rating_condition")
+
+            results = []
+
+            if not entity or not criteria:  # Validate essential params
+                return {"message": "Entity and criteria are required."}, 400
+
+            # Searching for Services
+            if entity == "service":
+                if not query:
+                    results = Service.query.all()
+                else:
+                    if criteria == "name":
+                        results = Service.query.filter(Service.name.ilike(f"%{query}%")).all()
+                    elif criteria == "base_price":
+                        results = Service.query.filter(Service.base_price == query).all()
+                    elif criteria == "description":
+                        results = Service.query.filter(Service.description.ilike(f"%{query}%")).all()
+
+            # Searching for Professionals
+            elif entity == "professional":
+                if not query and rating_filter:
+                    if rating_condition == "high":
+                        results = ServiceProfessional.query.filter(
+                            ServiceProfessional.average_rating >= float(rating_filter)
+                        ).all()
+                    elif rating_condition == "low":
+                        results = ServiceProfessional.query.filter(
+                            ServiceProfessional.average_rating <= float(rating_filter)
+                        ).all()
+                    else:
+                        results = ServiceProfessional.query.all()
+                else:
+                    if criteria == "name":
+                        results = ServiceProfessional.query.filter(
+                            ServiceProfessional.name.ilike(f"%{query}%")
+                        ).all()
+                    elif criteria == "experience":
+                        results = ServiceProfessional.query.filter(
+                            ServiceProfessional.experience == query
+                        ).all()
+                    elif criteria == "average_rating":
+                        if rating_filter:
+                            if rating_condition == "high":
+                                results = ServiceProfessional.query.filter(
+                                    ServiceProfessional.average_rating >= float(rating_filter)
+                                ).all()
+                            elif rating_condition == "low":
+                                results = ServiceProfessional.query.filter(
+                                    ServiceProfessional.average_rating <= float(rating_filter)
+                                ).all()
+                    elif criteria == "verified_status":
+                        results = ServiceProfessional.query.filter(
+                            ServiceProfessional.verified_status.ilike(f"%{query}%")
+                        ).all()
+                    elif criteria == "blocked_status":
+                        block_value = True if query.lower() == "blocked" else False
+                        results = ServiceProfessional.query.filter(
+                            ServiceProfessional.block_status == block_value
+                        ).all()
+                    else:
+                        results = ServiceProfessional.query.all()
+
+            # Searching for Service Requests
+            elif entity == "service_request":
+                if not query:
+                    results = ServiceRequest.query.all()
+                else:
+                    if criteria == "customer_name":
+                        results = (
+                            ServiceRequest.query.join(Customer)
+                            .filter(Customer.name.ilike(f"%{query}%"))
+                            .all()
+                        )
+                    elif criteria == "service_status":
+                        results = ServiceRequest.query.filter(
+                            ServiceRequest.service_status.ilike(f"%{query}%")
+                        ).all()
+
+            # Searching for Customers
+            elif entity == "customer":
+                if not query:
+                    results = Customer.query.filter(Customer.role == 1).all()
+                else:
+                    if criteria == "name":
+                        results = Customer.query.filter(
+                            Customer.role == 1, Customer.name.ilike(f"%{query}%")
+                        ).all()
+                    elif criteria == "email":
+                        results = Customer.query.filter(
+                            Customer.role == 1, Customer.email.ilike(f"%{query}%")
+                        ).all()
+                    elif criteria == "phone":
+                        results = Customer.query.filter(
+                            Customer.role == 1, Customer.phone_no.ilike(f"%{query}%")
+                        ).all()
+
+            return {"results": [result.to_dict() for result in results]}, 200
+
+        except Exception as e:
+            return {"message": str(e)}, 500
+
+
+# Register the resource with the Flask-RESTful API
+api.add_resource(SearchAdminResource, "/search_admin")
+
+class SearchProfessionalResource(Resource):
+    def get(self):
+        try:
+            # Extract parameters from the query string
+            entity = request.args.get("entity")
+            pin_code = request.args.get("pin_code")
+            customer_name = request.args.get("customer_name")
+            date_of_service = request.args.get("date_of_service")
+            date_of_closing = request.args.get("date_of_closing")
+
+            # Query to fetch service requests
+            service_requests_query = ServiceRequest.query.filter(
+                ServiceRequest.professional_id == session["professional_id"]
+            )
+
+            # Apply filters based on entity type
+            if entity == "pin_code" and pin_code:
+                service_requests_query = service_requests_query.filter(
+                    ServiceRequest.customer.has(pin_code=pin_code)
+                )
+
+            elif entity == "customer_name" and customer_name:
+                service_requests_query = service_requests_query.filter(
+                    ServiceRequest.customer.has(Customer.name.ilike(f"%{customer_name}%"))
+                )
+
+            elif entity == "date_of_service" and date_of_service:
+                try:
+                    date_of_service_obj = datetime.strptime(date_of_service, "%Y-%m-%d")
+                    service_requests_query = service_requests_query.filter(
+                        ServiceRequest.date_of_request == date_of_service_obj
+                    )
+                except ValueError:
+                    return {"error": "Invalid date format for date of service. Please use YYYY-MM-DD."}, 400
+
+            elif entity == "date_of_closing" and date_of_closing:
+                try:
+                    date_of_closing_obj = datetime.strptime(date_of_closing, "%Y-%m-%d")
+                    service_requests_query = service_requests_query.filter(
+                        ServiceRequest.date_of_completion >= date_of_closing_obj,
+                        ServiceRequest.date_of_completion
+                        < date_of_closing_obj.replace(hour=23, minute=59, second=59),
+                    )
+                except ValueError:
+                    return {"error": "Invalid date format for date of closing. Please use YYYY-MM-DD."}, 400
+
+            # Fetch the matching service requests
+            service_requests = service_requests_query.all()
+
+            # Collect unique customers based on the matching service requests
+            matching_customers = [
+                {
+                    "id": ServiceRequest.customer.id,
+                    "name": ServiceRequest.customer.name,
+                    "pin_code": ServiceRequest.customer.pin_code,
+                    "email": ServiceRequest.customer.email,
+                }
+                for ServiceRequest in service_requests
+            ]
+
+            # Return the results as a JSON response
+            return jsonify(matching_customers)
+
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+
+# Register the resource with Flask-RESTful API
+api.add_resource(SearchProfessionalResource, '/search-professionals')

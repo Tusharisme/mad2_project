@@ -253,8 +253,6 @@ export default {
             basePrice: service.base_price, // Add base price if needed
             description: service.description, // Add description if needed
           }));
-          console.log(this.services);
-          console.log("Transformed services:", this.services); // Debugging purposes
         } else {
           console.warn("No services found in response:", data);
         }

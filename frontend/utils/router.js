@@ -11,6 +11,10 @@ import AllProfessionalsPage from "../pages/AllProfessionalsPage.js";
 import CustomerDashboard from "../pages/CustomerDashboard.js";
 import ServiceProfessionals from "../pages/ServiceProfessional.js";
 import ProfessionalDashboard from "../pages/ProfessionalDashboard.js";
+import SearchPageforCustomer from "../pages/SearchPageforCustomer.js";
+import SearchPageforProfessional from "../pages/SearchPageforProfessional.js";
+import SearchPageforAdmin from "../pages/SearchPageforAdmin.js";
+import ServiceHistoryCustomer from "../pages/ServiceHistoryCustomer.js";
 
 const routes = [
   { path: "/", component: LandingPage },
@@ -58,6 +62,27 @@ const routes = [
     path: "/professional_dashboard",
     component: ProfessionalDashboard,
     meta: { requiresLogin: true, role: "professional" },
+  },
+  {
+    path: "/searchCustomer",
+    component: SearchPageforCustomer,
+    meta: { requiresLogin: true, role: "customer" },
+  },
+  {
+    path: "/searchProfessional",
+    component: SearchPageforProfessional,
+    meta: { requiresLogin: true, role: "professional" },
+  },
+  {
+    path: "/searchAdmin",
+    component: SearchPageforAdmin,
+    meta: { requiresLogin: true, role: "admin" },
+  },
+
+  {
+    path: "/service_history_customer",
+    component: ServiceHistoryCustomer,
+    meta: { requiresLogin: true, role: "customer" },
   },
 ];
 

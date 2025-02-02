@@ -117,29 +117,38 @@ export default {
   },
 
   methods: {
-    async fetchProfessionals(serviceId) {
+    async fetchProfessionals() {
       try {
+        if (!this.service || !this.service.id) {
+          console.error("No service ID available");
+          return;
+        }
+
         const response = await fetch(
-          `/api/professionals-by-service/${serviceId}`,
+          `/api/professionals-by-service/${this.service.id}`,
           {
-            method: "GET",
             headers: {
               "Content-Type": "application/json",
-              "Authentication-Token": this.$store.state.auth_token, // Ensure this matches your backend
+              "Authentication-Token": this.$store.state.auth_token,
             },
           }
         );
 
         if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Failed to fetch professionals");
         }
 
         const data = await response.json();
-        if (data) {
-          this.professionals = data || [];
-        }
+        // Filter out any professionals that might be blocked or not approved
+        this.professionals = data.filter(
+          (prof) => prof.verified_status === "approved" && !prof.block_status
+        );
+
+        console.log("Fetched professionals:", this.professionals); // Debug log
       } catch (error) {
         console.error("Error fetching professionals:", error);
+        this.professionals = [];
       }
     },
     openBookingModal(professional) {
@@ -152,7 +161,21 @@ export default {
     async confirmBooking() {
       try {
         const customerId = this.$store.state.customer.id;
-        console.log("Customer ID:", customerId); // Debug log
+        // Check if customer is blocked
+        const customerResponse = await fetch(`/api/customers/${customerId}`, {
+          headers: {
+            "Authentication-Token": this.$store.state.auth_token,
+          },
+        });
+        const customerData = await customerResponse.json();
+
+        if (customerData.is_blocked) {
+          alert(
+            "Your account is blocked. You cannot book services at this time."
+          );
+          return;
+        }
+
         const bookingData = {
           professional_id: this.selectedProfessional.id,
           service_id: this.service.id,
@@ -160,9 +183,6 @@ export default {
           requested_date: this.bookingDate,
           requested_time: this.bookingTime,
         };
-
-        console.log("Sending booking data:", bookingData); // Debug log
-
         const response = await fetch(`${location.origin}/api/book-service`, {
           method: "POST",
           headers: {
