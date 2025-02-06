@@ -1,135 +1,314 @@
 export default {
   template: `
-    <div class="container mt-4">
-    <h2 class="text-center mb-4">Customer Service History</h2>
-    
-    <!-- Service History Tabs -->
-    <ul class="nav nav-tabs mb-4">
-      <li class="nav-item">
-        <a class="nav-link" :class="{ active: activeTab === 'pending' }" @click="activeTab = 'pending'">Pending Requests</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" :class="{ active: activeTab === 'accepted' }" @click="activeTab = 'accepted'">Accepted Requests</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" :class="{ active: activeTab === 'completed' }" @click="activeTab = 'completed'">Completed Services</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" :class="{ active: activeTab === 'rejected' }" @click="activeTab = 'rejected'">Rejected Services</a>
-      </li>
-    </ul>
+  <div class="container mt-4">
+      <h2 class="text-center mb-4">Customer Service History</h2>
+  
+      <!-- Service History Tabs -->
+      <ul class="nav nav-tabs mb-4">
+          <li class="nav-item">
+              <a class="nav-link" :class="{ active: activeTab === 'pending' }" @click="activeTab = 'pending'">Pending
+                  Requests</a>
+          </li>
+          <li class="nav-item">
+              <a class="nav-link" :class="{ active: activeTab === 'accepted' }" @click="activeTab = 'accepted'">Accepted
+                  Requests</a>
+          </li>
+          <li class="nav-item">
+              <a class="nav-link" :class="{ active: activeTab === 'completed' }"
+                  @click="activeTab = 'completed'">Completed Services</a>
+          </li>
+          <li class="nav-item">
+              <a class="nav-link" :class="{ active: activeTab === 'rejected' }" @click="activeTab = 'rejected'">Rejected
+                  Services</a>
+          </li>
+      </ul>
+  
+      <!-- Pending Requests Table -->
+      <div v-if="activeTab === 'pending'" class="table-responsive">
+          <h3>Pending Service Requests</h3>
+          <div v-if="pendingRequests.length > 0">
+              <table class="table table-striped">
+                  <thead>
+                      <tr>
+                          <th>Request ID</th>
+                          <th>Service Name</th>
+                          <th>Requested Date</th>
+                          <th>Status</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      <tr v-for="request in pendingRequests" :key="request.id">
+                          <td>{{ request.id }}</td>
+                          <td>{{ request.service.name }}</td>
+                          <td>{{ formatDate(request.requested_date) }}</td>
+                          <td>{{ request.service_status }}</td>
+                      </tr>
+                  </tbody>
+              </table>
+          </div>
+          <div v-else class="alert alert-info mt-3">
+              <p class="mb-0">No pending service requests available.</p>
+          </div>
+      </div>
+  
+      <!-- Accepted Requests Table -->
+      <div v-if="activeTab === 'accepted'" class="table-responsive">
+          <h3>Accepted Service Requests</h3>
+          <div v-if="acceptedRequests.length > 0">
+              <table class="table table-striped">
+                  <thead>
+                      <tr>
+                          <th>Request ID</th>
+                          <th>Service Name</th>
+                          <th>Requested Date</th>
+                          <th>Status</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      <tr v-for="request in acceptedRequests" :key="request.id">
+                          <td>{{ request.id }}</td>
+                          <td>{{ request.service.name }}</td>
+                          <td>{{ formatDate(request.requested_date) }}</td>
+                          <td>{{ request.service_status }}</td>
+                      </tr>
+                  </tbody>
+              </table>
+          </div>
+          <div v-else class="alert alert-info mt-3">
+              <p class="mb-0">No accepted service requests yet.</p>
+          </div>
+      </div>
+  
+      <!-- Completed Services Table -->
+      <div v-if="activeTab === 'completed'" class="table-responsive">
+          <h3>Completed Services</h3>
+          <div v-if="completedRequests.length > 0">
+              <table class="table table-striped">
+                  <thead>
+                      <tr>
+                          <th>Request ID</th>
+                          <th>Service Name</th>
+                          <th>Completion Date</th>
+                          <th>Rating</th>
+                          <th>Action</th> <!-- Added Action column -->
+                      </tr>
+                  </thead>
+                  <tbody>
+                      <tr v-for="request in completedRequests" :key="request.id">
+                          <td>{{ request.id }}</td>
+                          <td>{{ request.service.name }}</td>
+                          <td>{{ formatDate(request.date_of_completion) }}</td>
+                          <td>{{ request.rating || 'Not rated yet' }}</td>
+                          <td>
+                              <button v-if="!request.rating" class="btn btn-primary" @click="openCompleteServiceModal(request.id)">
+                                  Rate Service
+                              </button>
+                          </td>
+                      </tr>
+                  </tbody>
+              </table>
+          </div>
+          <div v-else class="alert alert-info mt-3">
+              <p class="mb-0">No completed services yet.</p>
+          </div>
+      </div>
+  
+      <!-- Rejected Services Table -->
+      <div v-if="activeTab === 'rejected'" class="table-responsive">
+          <h3>Rejected Services</h3>
+          <div v-if="rejectedRequests.length > 0">
+              <table class="table table-striped">
+                  <thead>
+                      <tr>
+                          <th>Request ID</th>
+                          <th>Service Name</th>
+                          <th>Requested Date</th>
+                          <th>Status</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      <tr v-for="request in rejectedRequests" :key="request.id">
+                          <td>{{ request.id }}</td>
+                          <td>{{ request.service.name }}</td>
+                          <td>{{ formatDate(request.requested_date) }}</td>
+                          <td>{{ request.service_status }}</td>
+                      </tr>
+                  </tbody>
+              </table>
+          </div>
+          <div v-else class="alert alert-info mt-3">
+              <p class="mb-0">No rejected service requests.</p>
+          </div>
+      </div>
+  
+      <!-- Complete Service Modal -->
+      <div class="modal fade" id="completeServiceModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content custom-modal">
+            <div class="modal-header">
+              <h5 class="modal-title">Close Service Request</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <p><strong>Service Name:</strong> <span>{{ modalServiceName }}</span></p>
+              <p><strong>Professional Name:</strong> <span>{{ modalProfessionalName }}</span></p>
+              <p><strong>Professional ID:</strong> <span>{{ modalProfessionalId }}</span></p>
 
-    <!-- Pending Requests Table -->
-    <div v-if="activeTab === 'pending'" class="table-responsive">
-      <h3>Pending Service Requests</h3>
-      <div v-if="pendingRequests.length > 0">
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <th>Request ID</th>
-              <th>Service Name</th>
-              <th>Requested Date</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="request in pendingRequests" :key="request.id">
-              <td>{{ request.id }}</td>
-              <td>{{ request.service.name }}</td>
-              <td>{{ formatDate(request.requested_date) }}</td>
-              <td>{{ request.service_status }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div v-else class="alert alert-info mt-3">
-        <p class="mb-0">No pending service requests available.</p>
-      </div>
-    </div>
+              <div class="mb-3">
+                <label class="form-label">Customer Rating (1 to 5):</label>
+                <input type="number" class="form-control" v-model="customerRating" step="0.1" min="1" max="5" required />
+              </div>
 
-    <!-- Accepted Requests Table -->
-    <div v-if="activeTab === 'accepted'" class="table-responsive">
-      <h3>Accepted Service Requests</h3>
-      <div v-if="acceptedRequests.length > 0">
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <th>Request ID</th>
-              <th>Service Name</th>
-              <th>Requested Date</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="request in acceptedRequests" :key="request.id">
-              <td>{{ request.id }}</td>
-              <td>{{ request.service.name }}</td>
-              <td>{{ formatDate(request.requested_date) }}</td>
-              <td>{{ request.service_status }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div v-else class="alert alert-info mt-3">
-        <p class="mb-0">No accepted service requests yet.</p>
-      </div>
-    </div>
+              <div class="mb-3">
+                <label class="form-label">Remarks:</label>
+                <textarea class="form-control" v-model="customerRemark" rows="2" required></textarea>
+              </div>
 
-    <!-- Completed Services Table -->
-    <div v-if="activeTab === 'completed'" class="table-responsive">
-      <h3>Completed Services</h3>
-      <div v-if="completedRequests.length > 0">
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <th>Request ID</th>
-              <th>Service Name</th>
-              <th>Completion Date</th>
-              <th>Rating</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="request in completedRequests" :key="request.id">
-              <td>{{ request.id }}</td>
-              <td>{{ request.service.name }}</td>
-              <td>{{ formatDate(request.date_of_completion) }}</td>
-              <td>{{ request.rating || 'Not rated yet' }}</td>
-            </tr>
-          </tbody>
-        </table>
+              <input type="hidden" v-model="requestId" />
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                Close
+              </button>
+              <button type="button" class="btn btn-custom" @click="validateAndSubmit">
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div v-else class="alert alert-info mt-3">
-        <p class="mb-0">No completed services yet.</p>
-      </div>
-    </div>
+  </div>
+  `,
 
-    <!-- Rejected Services Table -->
-    <div v-if="activeTab === 'rejected'" class="table-responsive">
-      <h3>Rejected Services</h3>
-      <div v-if="rejectedRequests.length > 0">
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <th>Request ID</th>
-              <th>Service Name</th>
-              <th>Requested Date</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="request in rejectedRequests" :key="request.id">
-              <td>{{ request.id }}</td>
-              <td>{{ request.service.name }}</td>
-              <td>{{ formatDate(request.requested_date) }}</td>
-              <td>{{ request.service_status }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div v-else class="alert alert-info mt-3">
-        <p class="mb-0">No rejected service requests.</p>
-      </div>
-    </div>
-</div>
-`,
+  data() {
+    return {
+      activeTab: "pending",
+      pendingRequests: [],
+      acceptedRequests: [],
+      completedRequests: [],
+      rejectedRequests: [],
+      customerId: null,
+      customerRating: null, // Added to store the rating
+      customerRemark: "", // Added to store the remark
+      currentRequest: null, // Store the request currently being marked as completed
+      modalProfessionalName: "", // Professional name for the modal
+      modalProfessionalId: "", // Professional ID for the modal
+      modalServiceName: "", // Service name for the modal
+      requestId: null, // Added requestId to data
+    };
+  },
+
+  methods: {
+    async fetchServiceHistory() {
+      try {
+        const storedData = JSON.parse(localStorage.getItem("user"));
+        if (storedData && storedData.customer_id) {
+          this.customerId = storedData.customer_id;
+        } else {
+          console.error("Customer ID is missing or invalid.");
+          return;
+        }
+        const token = this.$store.state.token;
+
+        const response = await fetch(
+          `/api/service-history/customer/${this.customerId}`,
+          {
+            headers: { "Authentication-Token": this.$store.state.auth_token },
+          }
+        );
+
+        if (!response.ok) throw new Error("Failed to fetch service history");
+
+        const data = await response.json();
+
+        this.pendingRequests = data.filter(
+          (req) => req.service_status === "requested"
+        );
+        this.acceptedRequests = data.filter(
+          (req) => req.service_status === "accepted"
+        );
+        this.completedRequests = data.filter(
+          (req) => req.service_status === "completed"
+        );
+        this.rejectedRequests = data.filter(
+          (req) => req.service_status === "rejected"
+        );
+      } catch (error) {
+        console.error("Error fetching service history:", error);
+      }
+    },
+
+    formatDate(dateString) {
+      const options = { year: "numeric", month: "short", day: "numeric" };
+      return new Date(dateString).toLocaleDateString(undefined, options);
+    },
+
+    openCompleteServiceModal(requestId) {
+      this.currentRequest = this.findRequestById(requestId);
+      this.customerRating = null;
+      this.customerRemark = "";
+
+      // Set modal data for professional
+      this.modalProfessionalName = this.currentRequest.professionalName;
+      this.modalProfessionalId = this.currentRequest.professionalId;
+      this.modalServiceName = this.currentRequest.serviceName;
+      this.requestId = requestId; // Set requestId for the modal
+
+      const modal = new bootstrap.Modal(
+        document.getElementById("completeServiceModal")
+      );
+      modal.show();
+    },
+
+    findRequestById(id) {
+      const allRequests = [
+        ...this.pendingRequests,
+        ...this.acceptedRequests,
+        ...this.completedRequests,
+        ...this.rejectedRequests,
+      ];
+      return allRequests.find((req) => req.id === id);
+    },
+    // Validate the rating and show an alert if it is out of range
+    validateAndSubmit() {
+      if (this.customerRating < 1 || this.customerRating > 5) {
+        alert("Please enter a rating between 1 and 5.");
+        return; // Prevent submission if the rating is out of range
+      }
+      this.completeService(); // Proceed to submit the form if validation passes
+    },
+    async completeService() {
+      try {
+        const response = await fetch(
+          `/api/service_requests/${this.currentRequest.id}/review`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authentication-Token": this.$store.state.auth_token,
+            },
+            body: JSON.stringify({
+              customerRating: this.customerRating,
+              customerRemark: this.customerRemark,
+            }),
+          }
+        );
+
+        if (!response.ok) throw new Error("Failed to complete service");
+
+        alert("Service marked as complete successfully");
+        this.fetchServiceHistory(); // Refresh service history
+        const modal = bootstrap.Modal.getInstance(
+          document.getElementById("completeServiceModal")
+        );
+        modal.hide(); // Hide the modal
+      } catch (error) {
+        console.error("Failed to complete service:", error);
+      }
+    },
+  },
+
+  mounted() {
+    this.fetchServiceHistory();
+  },
 };

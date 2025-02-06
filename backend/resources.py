@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone,date
 import cloudinary
 from flask_login import current_user
 from flask_restful import Resource, Api, fields, marshal, marshal_with
@@ -468,19 +468,11 @@ api.add_resource(ServiceProfessionalResource, '/service_professionals/<int:profe
 api.add_resource(AllCustomersResource, '/customers')
 api.add_resource(AllServiceProfessionalsResource, '/service_professionals')
 api.add_resource(AllServicesResource, '/services')
-# In resources.py or a similar file where you define your RESTful resources
 
-# from backend.models import ServiceRequest, db
-# from datetime import datetime
 
 
 class ServiceRequestListResource(Resource):
-    """
-    Use this resource to retrieve all service requests or create a new one.
-    Example usage:
-      GET /api/service_requests
-      POST /api/service_requests
-    """
+
     @auth_required('token')
     @marshal_with(service_request_fields)   
     def get(self):
@@ -492,18 +484,7 @@ class ServiceRequestListResource(Resource):
 
     @auth_required('token')
     def post(self):
-        """
-        Create a new service request. 
-        The request body should include:
-        {
-            "service_id": ...,
-            "customer_id": ...,
-            "professional_id": ...,
-            "requested_date": "...",
-            "requested_time": "...",
-            "remarks": "..."
-        }
-        """
+
         try:
             data = request.get_json()
             new_request = ServiceRequest(
@@ -524,13 +505,7 @@ class ServiceRequestListResource(Resource):
             return {'message': str(e)}, 500
 
 class SingleServiceRequestResource(Resource):
-    """
-    Use this resource to retrieve, update, or delete a single service request by ID.
-    Example usage:
-      GET /api/service_requests/<int:request_id>
-      PATCH /api/service_requests/<int:request_id>
-      DELETE /api/service_requests/<int:request_id>
-    """
+
     @auth_required('token')
     @marshal_with(service_request_fields)
     def get(self, request_id):
@@ -542,15 +517,7 @@ class SingleServiceRequestResource(Resource):
 
     @auth_required('token')
     def patch(self, request_id):
-        """
-        You can partially update the service request here. 
-        For example, to update the remarks or status:
-        {
-            "service_status": "...",
-            "remarks": "...",
-            "rating": ...
-        }
-        """
+
         try:
             data = request.get_json()
             service_request = ServiceRequest.query.get_or_404(request_id)
@@ -568,9 +535,7 @@ class SingleServiceRequestResource(Resource):
 
     @auth_required('token')
     def delete(self, request_id):
-        """
-        Delete a service request by ID.
-        """
+
         try:
             service_request = ServiceRequest.query.get_or_404(request_id)
             db.session.delete(service_request)
@@ -581,9 +546,6 @@ class SingleServiceRequestResource(Resource):
             return {'message': str(e)}, 500
 
 class AcceptServiceRequestResource(Resource):
-    """
-    POST /api/service_requests/<int:request_id>/accept
-    """
     @auth_required('token')
     def post(self, request_id):
         try:
@@ -600,9 +562,6 @@ class AcceptServiceRequestResource(Resource):
             return {'message': str(e)}, 500
 
 class RejectServiceRequestResource(Resource):
-    """
-    POST /api/service_requests/<int:request_id>/reject
-    """
     @auth_required('token')
     def post(self, request_id):
         try:
@@ -619,15 +578,6 @@ class RejectServiceRequestResource(Resource):
             return {'message': str(e)}, 500
 
 class CloseServiceRequestResource(Resource):
-    """
-    POST /api/service_requests/<int:request_id>/close
-    This endpoint finalizes a service request by marking it as completed.
-    You can also handle rating or remarks in the request body:
-    {
-      "customerRating": X,
-      "customerRemark": "..."
-    }
-    """
     @auth_required('token')
     def post(self, request_id):
         try:
@@ -650,9 +600,7 @@ class CloseServiceRequestResource(Resource):
         except Exception as e:
             db.session.rollback()
             return {'message': str(e)}, 500
-# In your resources.py or a central file where you register your APIs
-
-# Assuming 'api' is your Api() instance
+        
 api.add_resource(ServiceRequestListResource, '/service_requests')
 api.add_resource(SingleServiceRequestResource, '/service_requests/<int:request_id>')
 api.add_resource(AcceptServiceRequestResource, '/service_requests/<int:request_id>/accept')
@@ -660,7 +608,6 @@ api.add_resource(RejectServiceRequestResource, '/service_requests/<int:request_i
 api.add_resource(CloseServiceRequestResource, '/service_requests/<int:request_id>/close')
 
 # Ensure this resource is properly registered
-
 class ServiceRequestResource(Resource):
     @auth_required('token')
     def post(self):
@@ -726,7 +673,6 @@ class ProfessionalServiceRequestsResource(Resource):
             return {'message': str(e)}, 500
 
 api.add_resource(ProfessionalServiceRequestsResource, '/service_requests/professional/<int:professional_id>')
-from datetime import date
 
 class TodayServiceRequestsResource(Resource):
     @auth_required('token')
@@ -742,43 +688,6 @@ class TodayServiceRequestsResource(Resource):
             return {'message': str(e)}, 500
 
 api.add_resource(TodayServiceRequestsResource, '/service_requests/professional/<int:professional_id>/today')
-
-# class ProfessionalServiceRequests(Resource):
-#     @auth_required('token')
-#     def get(self, professional_id):
-#         try:
-#             # Verify the professional exists and matches current user
-#             if str(current_user.id) != str(professional_id):
-#                 return {"message": "Unauthorized access"}, 403
-
-#             # Fetch all service requests for this professional
-#             service_requests = ServiceRequest.query.filter_by(professional_id=professional_id).all()
-            
-#             # Format the response data
-#             requests_data = []
-#             for request in service_requests:
-#                 # Get customer details
-#                 customer = User.query.get(request.customer_id)
-#                 # Get service details
-#                 service = Service.query.get(request.service_id)
-                
-#                 requests_data.append({
-#                     "id": request.id,
-#                     "customer_name": f"{customer.name}" if customer else "Unknown Customer",
-#                     "service_name": service.name if service else "Unknown Service",
-#                     "requested_date": request.requested_date.isoformat() if request.requested_date else None,
-#                     "completion_date": request.completion_date.isoformat() if request.completion_date else None,
-#                     "service_status": request.service_status,
-#                     "completion_notes": request.completion_notes
-#                 })
-
-#             return jsonify(requests_data)
-
-#         except Exception as e:
-#             db.session.rollback()
-#             return {"message": f"Error fetching service requests: {str(e)}"}, 500
-        
-# api.add_resource(ProfessionalServiceRequests, '/api/professional/<int:professional_id>/service-requests')
 
 class CustomerBlockResource(Resource):
     @auth_required('token')
@@ -1097,3 +1006,72 @@ class SearchProfessionalResource(Resource):
 
 # Register the resource with Flask-RESTful API
 api.add_resource(SearchProfessionalResource, '/search-professionals')
+
+class CustomerServiceHistoryResource(Resource):
+    @auth_required('token')
+    def get(self, customer_id):
+        try:
+            # Fetch service requests for the customer, including service and professional details
+            service_requests = ServiceRequest.query \
+                .join(ServiceProfessional, ServiceRequest.professional_id == ServiceProfessional.id) \
+                .join(Service, ServiceRequest.service_id == Service.id).filter(ServiceRequest.customer_id == customer_id) \
+                .all()   # Join the Service table to get the service name
+                
+
+            # If no service requests found, return a message
+            if not service_requests:
+                return {'message': 'No service history found for this customer.'}, 404
+
+            # Marshal the service requests to return the necessary fields
+            result = []
+            for request in service_requests:
+                request_data = marshal(request, service_request_fields)
+                # Add professional details to the response
+                request_data['professionalName'] = request.professional.name  # Adjust 'name' to the actual field of professional
+                request_data['professionalId'] = request.professional.id
+                request_data['serviceName'] = request.service.name  # Ensure this field is populated from the Service model
+                result.append(request_data)
+
+            return result, 200
+
+        except Exception as e:
+            print(f"Error fetching service history for customer {customer_id}: {e}")
+            return {'message': str(e)}, 500
+
+# Add the resource to your API
+api.add_resource(CustomerServiceHistoryResource, '/service-history/customer/<int:customer_id>')
+
+class ServiceRequestReviewResource(Resource):
+    def post(self, service_request_id):
+        # Get the request data
+        data = request.get_json()
+        rating = data.get("customerRating")
+        remarks = data.get("customerRemark")
+
+        if not rating or not remarks:
+            return {"message": "Rating and remarks are required."}, 400
+
+        # Find the service request
+        service_request = ServiceRequest.query.get(service_request_id)
+        
+        if not service_request:
+            return {"message": "Service request not found."}, 404
+
+        # Check if the service is completed before accepting feedback
+        if service_request.service_status != "completed":
+            return {"message": "Service must be completed before leaving a review."}, 400
+
+        # Update the review in the service request
+        service_request.rating = rating
+        service_request.remarks = remarks
+
+        # Commit the changes to the database
+        try:
+            db.session.commit()
+            return {"message": "Review submitted successfully."}, 200
+        except Exception as e:
+            db.session.rollback()
+            return {"message": str(e)}, 500
+        
+        
+api.add_resource(ServiceRequestReviewResource, '/service_requests/<int:service_request_id>/review')

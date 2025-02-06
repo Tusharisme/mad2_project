@@ -203,7 +203,7 @@ export default {
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
           Close
         </button>
-        <button type="button" class="btn btn-custom" @click="completeService">
+        <button type="button" class="btn btn-custom" @click="validateAndSubmit">
           Submit
         </button>
       </div>
@@ -387,7 +387,14 @@ export default {
       );
       modal.show();
     },
-
+    // Validate the rating and show an alert if it is out of range
+    validateAndSubmit() {
+      if (this.customerRating < 1 || this.customerRating > 5) {
+        alert("Please enter a rating between 1 and 5.");
+        return; // Prevent submission if the rating is out of range
+      }
+      this.completeService(); // Proceed to submit the form if validation passes
+    },
     async completeService() {
       try {
         const response = await fetch(
