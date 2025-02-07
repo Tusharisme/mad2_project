@@ -1075,3 +1075,138 @@ class ServiceRequestReviewResource(Resource):
         
         
 api.add_resource(ServiceRequestReviewResource, '/service_requests/<int:service_request_id>/review')
+class CustomerServiceSummary(Resource):
+    def get(self, user_id):
+        try:
+            # Retrieve the user
+            user = User.query.get(user_id)
+            if not user:
+                return {"error": "User not found"}, 404
+
+            if not user.customer:
+                return {"error": "Customer not found"}, 404
+
+            customer = user.customer
+
+            # Fetch service requests for the customer
+            requests = ServiceRequest.query.filter_by(customer_id=customer.id).all()
+            # Initialize counters
+            status_counts = {"accepted": 0, "rejected": 0, "completed": 0, "pending": 0}
+            category_counts = {}
+            requests_over_time = {}
+
+            for req in requests:
+                # Count service statuses
+                if req.service_status == "accepted":
+                    status_counts["accepted"] += 1
+                elif req.service_status == "rejected":
+                    status_counts["rejected"] += 1
+                elif req.service_status == "completed":
+                    status_counts["completed"] += 1
+                elif req.service_status == "requested":
+                    status_counts["pending"] += 1
+
+                # Count service categories
+                if req.service:
+                    category = req.service.name
+                    category_counts[category] = category_counts.get(category, 0) + 1
+                
+                # Count requests over time (grouped by month)
+                if req.requested_date:
+                    request_month = req.requested_date.strftime("%Y-%m")
+                    requests_over_time[request_month] = requests_over_time.get(request_month, 0) + 1
+            # Prepare the response data
+            response_data = {
+                "status_data": {
+                    "labels": ["Accepted", "Rejected", "Completed", "Pending"],
+                    "values": [
+                        status_counts["accepted"],
+                        status_counts["rejected"],
+                        status_counts["completed"],
+                        status_counts["pending"],
+                    ],
+                },
+                "category_data": {
+                    "labels": list(category_counts.keys()),
+                    "values": list(category_counts.values()),
+                },
+                "requests_over_time": {
+                    "labels": list(requests_over_time.keys()),
+                    "values": list(requests_over_time.values()),
+                },
+            }
+
+            return jsonify(response_data)
+
+        except Exception as e:
+            return {"error": f"An error occurred: {str(e)}"}, 500
+
+
+# Adding the resource to the API
+api.add_resource(CustomerServiceSummary, "/customer-service-summary/<int:user_id>")
+
+class ProfessionalServiceSummary(Resource):
+    @auth_required('token')
+    def get(self, professional_id):
+        try:
+            # Retrieve the professional
+            professional = ServiceProfessional.query.get(professional_id)
+            if not professional:
+                return {"error": "Professional not found"}, 404
+
+            # Fetch service requests for the professional
+            requests = ServiceRequest.query.filter_by(professional_id=professional.id).all()
+            # Initialize counters
+            status_counts = {"accepted": 0, "rejected": 0, "completed": 0, "pending": 0}
+            category_counts = {}
+            requests_over_time = {}
+
+            for req in requests:
+                # Count service statuses
+                if req.service_status == "accepted":
+                    status_counts["accepted"] += 1
+                elif req.service_status == "rejected":
+                    status_counts["rejected"] += 1
+                elif req.service_status == "completed":
+                    status_counts["completed"] += 1
+                elif req.service_status == "requested":
+                    status_counts["pending"] += 1
+
+                # Count service categories
+                if req.service:
+                    category = req.service.name
+                    category_counts[category] = category_counts.get(category, 0) + 1
+                
+                # Count requests over time (grouped by month)
+                if req.requested_date:
+                    request_month = req.requested_date.strftime("%Y-%m")
+                    requests_over_time[request_month] = requests_over_time.get(request_month, 0) + 1
+
+            # Prepare the response data
+            response_data = {
+                "status_data": {
+                    "labels": ["Accepted", "Rejected", "Completed", "Pending"],
+                    "values": [
+                        status_counts["accepted"],
+                        status_counts["rejected"],
+                        status_counts["completed"],
+                        status_counts["pending"],
+                    ],
+                },
+                "category_data": {
+                    "labels": list(category_counts.keys()),
+                    "values": list(category_counts.values()),
+                },
+                "requests_over_time": {
+                    "labels": list(requests_over_time.keys()),
+                    "values": list(requests_over_time.values()),
+                },
+            }
+
+            return jsonify(response_data)
+
+        except Exception as e:
+            return {"error": f"An error occurred: {str(e)}"}, 500
+
+# Adding the resource to the API
+api.add_resource(ProfessionalServiceSummary, "/professional-service-summary/<int:professional_id>")
