@@ -398,3 +398,212 @@
         </div>
     </div>
 </div>
+
+
+
+export default {
+    template: `
+    <div id="admin-dashboard" class="container">
+      <h2 class="text-center" style="text-decoration: underline;">Admin Dashboard</h2>
+  
+      <!-- Tabs for different insights -->
+      <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+          <a class="nav-link" :class="{ active: activeTab === 'requests' }" 
+             @click="activeTab = 'requests'">Service Requests Overview</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" :class="{ active: activeTab === 'trends' }" 
+             @click="activeTab = 'trends'">Monthly Trends</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" :class="{ active: activeTab === 'topServices' }" 
+             @click="activeTab = 'topServices'">Top Services</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" :class="{ active: activeTab === 'ratings' }" 
+             @click="activeTab = 'ratings'">Professional Ratings</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" :class="{ active: activeTab === 'pincode' }" 
+             @click="activeTab = 'pincode'">Requests by Pincode</a>
+        </li>
+      </ul>
+  
+      <!-- Graphs -->
+      <div v-if="activeTab === 'requests'">
+        <canvas id="requestsChart"></canvas>
+      </div>
+  
+      <div v-if="activeTab === 'trends'">
+        <canvas id="trendsChart"></canvas>
+      </div>
+  
+      <div v-if="activeTab === 'topServices'">
+        <canvas id="topServicesChart"></canvas>
+      </div>
+  
+      <div v-if="activeTab === 'ratings'">
+        <canvas id="ratingsChart"></canvas>
+      </div>
+  
+      <div v-if="activeTab === 'pincode'">
+        <canvas id="pincodeChart"></canvas>
+      </div>
+    </div>
+    `,
+  
+    data() {
+      return {
+        activeTab: "requests",
+        charts: {},
+      };
+    },
+  
+    mounted() {
+      this.fetchChartData("requests");
+    },
+  
+    watch: {
+      activeTab(newTab) {
+        this.fetchChartData(newTab);
+      },
+    },
+  
+    beforeDestroy() {
+      Object.values(this.charts).forEach((chart) => chart.destroy());
+      this.charts = {};
+    },
+  
+    methods: {
+      async fetchChartData(type) {
+        let url = "";
+        switch (type) {
+          case "requests":
+            url = "/api/service_requests/stats";
+            break;
+          case "trends":
+            url = "/api/service_requests/monthly";
+            break;
+          case "topServices":
+            url = "/api/services/popular";
+            break;
+          case "ratings":
+            url = "/api/professionals/ratings";
+            break;
+          case "pincode":
+            url = "/api/service_requests/pincode_distribution";
+            break;
+        }
+  
+        try {
+          const res = await fetch(url);
+          const data = await res.json();
+          if (res.ok) {
+            this.renderChart(type, data);
+          } else {
+            console.error("Failed to fetch chart data:", data.message);
+          }
+        } catch (error) {
+          console.error("Error fetching chart data:", error);
+        }
+      },
+  
+      renderChart(type, data) {
+        const chartId = `${type}Chart`;
+        const chartElement = document.getElementById(chartId);
+  
+        if (!chartElement) {
+          console.error(`Canvas element with ID '${chartId}' not found.`);
+          return;
+        }
+  
+        // Check and destroy the existing chart instance, if any
+        if (this.charts[type]) {
+          try {
+            this.charts[type].destroy();
+          } catch (err) {
+            console.warn(`Error destroying chart: ${err.message}`);
+          }
+          this.charts[type] = null; // Clear the reference
+        }
+  
+        // Reset canvas element for a clean state
+        const parent = chartElement.parentNode;
+        const newCanvas = document.createElement("canvas");
+        newCanvas.id = chartId;
+        parent.removeChild(chartElement); // Remove the old canvas
+        parent.appendChild(newCanvas); // Add a fresh canvas
+        const ctx = newCanvas.getContext("2d");
+  
+        // Define the chart configuration based on the type
+        let config = {};
+        if (type === "requests") {
+          config = {
+            type: "pie",
+            data: {
+              labels: ["Pending", "Accepted", "Completed", "Rejected"],
+              datasets: [
+                {
+                  data: data.counts,
+                  backgroundColor: ["blue", "green", "orange", "red"],
+                },
+              ],
+            },
+          };
+        } else if (type === "trends") {
+          config = {
+            type: "line",
+            data: {
+              labels: data.months,
+              datasets: [
+                { label: "Requests", data: data.counts, borderColor: "blue" },
+              ],
+            },
+          };
+        } else if (type === "topServices") {
+          config = {
+            type: "bar",
+            data: {
+              labels: data.services,
+              datasets: [
+                {
+                  label: "Bookings",
+                  data: data.counts,
+                  backgroundColor: "purple",
+                },
+              ],
+            },
+          };
+        } else if (type === "ratings") {
+          config = {
+            type: "bar",
+            data: {
+              labels: data.professionals,
+              datasets: [
+                { label: "Ratings", data: data.ratings, backgroundColor: "gold" },
+              ],
+            },
+          };
+        } else if (type === "pincode") {
+          config = {
+            type: "bar",
+            data: {
+              labels: data.pincodes,
+              datasets: [
+                { label: "Requests", data: data.counts, backgroundColor: "teal" },
+              ],
+            },
+          };
+        }
+  
+        // Create a new chart instance
+        try {
+          this.charts[type] = new Chart(ctx, config);
+        } catch (err) {
+          console.error(`Error creating chart: ${err.message}`);
+        }
+      },
+    },
+  };
+  

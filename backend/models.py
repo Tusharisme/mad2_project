@@ -143,10 +143,10 @@ class ServiceRequest(db.Model):
     date_of_request = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     date_of_completion = db.Column(db.DateTime)
     service_status = db.Column(db.String, nullable=False)
-    remarks = db.Column(db.String, nullable=True)
-    rating = db.Column(db.Integer, nullable=True)
-    customer_rating = db.Column(db.Integer, nullable=True)
-    customer_remarks = db.Column(db.String, nullable=True)
+    remarks = db.Column(db.String, nullable=True) # Remarks for professional
+    rating = db.Column(db.Integer, nullable=True)  # Remarks for professional
+    customer_rating = db.Column(db.Integer, nullable=True) # Rating  for customer
+    customer_remarks = db.Column(db.String, nullable=True)  # Remarks for customer
     requested_date = db.Column(db.Date)
     requested_time = db.Column(db.Time)
 

@@ -2,6 +2,7 @@ from datetime import datetime, timezone,date
 import cloudinary
 from flask_login import current_user
 from flask_restful import Resource, Api, fields, marshal, marshal_with
+from sqlalchemy import func
 from backend.models import ProfessionalService, ServiceRequest, db, Customer, ServiceProfessional, User, Role, UserRoles, Service
 from flask import abort, current_app as app, request, jsonify, session
 from flask_security import auth_required, hash_password
@@ -1145,6 +1146,7 @@ class CustomerServiceSummary(Resource):
 # Adding the resource to the API
 api.add_resource(CustomerServiceSummary, "/customer-service-summary/<int:user_id>")
 
+
 class ProfessionalServiceSummary(Resource):
     @auth_required('token')
     def get(self, professional_id):
@@ -1156,10 +1158,11 @@ class ProfessionalServiceSummary(Resource):
 
             # Fetch service requests for the professional
             requests = ServiceRequest.query.filter_by(professional_id=professional.id).all()
+            
             # Initialize counters
             status_counts = {"accepted": 0, "rejected": 0, "completed": 0, "pending": 0}
-            category_counts = {}
             requests_over_time = {}
+            ratings_over_time = {}
 
             for req in requests:
                 # Count service statuses
@@ -1171,16 +1174,25 @@ class ProfessionalServiceSummary(Resource):
                     status_counts["completed"] += 1
                 elif req.service_status == "requested":
                     status_counts["pending"] += 1
-
-                # Count service categories
-                if req.service:
-                    category = req.service.name
-                    category_counts[category] = category_counts.get(category, 0) + 1
                 
                 # Count requests over time (grouped by month)
                 if req.requested_date:
                     request_month = req.requested_date.strftime("%Y-%m")
                     requests_over_time[request_month] = requests_over_time.get(request_month, 0) + 1
+
+                # Track customer ratings over time (average per month)
+                if req.rating is not None:
+                    rating_month = req.requested_date.strftime("%Y-%m")
+                    if rating_month in ratings_over_time:
+                        ratings_over_time[rating_month].append(req.rating)
+                    else:
+                        ratings_over_time[rating_month] = [req.rating]
+
+            # Convert ratings into average values
+            avg_ratings_over_time = {
+                month: round(sum(ratings) / len(ratings), 2)
+                for month, ratings in ratings_over_time.items()
+            }
 
             # Prepare the response data
             response_data = {
@@ -1193,13 +1205,13 @@ class ProfessionalServiceSummary(Resource):
                         status_counts["pending"],
                     ],
                 },
-                "category_data": {
-                    "labels": list(category_counts.keys()),
-                    "values": list(category_counts.values()),
-                },
                 "requests_over_time": {
-                    "labels": list(requests_over_time.keys()),
-                    "values": list(requests_over_time.values()),
+                    "labels": sorted(requests_over_time.keys()),
+                    "values": [requests_over_time[k] for k in sorted(requests_over_time.keys())],
+                },
+                "ratings_over_time": {
+                    "labels": sorted(avg_ratings_over_time.keys()),
+                    "values": [avg_ratings_over_time[k] for k in sorted(avg_ratings_over_time.keys())],
                 },
             }
 
@@ -1210,3 +1222,102 @@ class ProfessionalServiceSummary(Resource):
 
 # Adding the resource to the API
 api.add_resource(ProfessionalServiceSummary, "/professional-service-summary/<int:professional_id>")
+
+from flask import jsonify
+from flask_restful import Resource
+from sqlalchemy import func
+from datetime import datetime, timedelta
+
+# 1. Service Requests Overview
+class ServiceRequestStats(Resource):
+    def get(self):
+        status_counts = (
+            db.session.query(ServiceRequest.service_status, func.count(ServiceRequest.id))
+            .group_by(ServiceRequest.service_status)
+            .all()
+        )
+        return jsonify({status: count for status, count in status_counts})
+
+# 2. Monthly Trends
+class ServiceRequestTrends(Resource):
+    def get(self):
+        six_months_ago = datetime.utcnow() - timedelta(days=180)
+        trends = (
+            db.session.query(
+                func.strftime("%Y-%m", ServiceRequest.date_of_request).label("month"),
+                func.count(ServiceRequest.id).label("count")
+            )
+            .filter(ServiceRequest.date_of_request >= six_months_ago)
+            .group_by("month")
+            .order_by("month")
+            .all()
+        )
+        return jsonify({
+            "months": [trend.month for trend in trends],
+            "counts": [trend.count for trend in trends]
+        })
+
+# 3. Top Services
+class TopServices(Resource):
+    def get(self):
+        top_services = (
+            db.session.query(
+                Service.name,
+                func.count(ServiceRequest.id).label("count")
+            )
+            .join(ServiceRequest, Service.id == ServiceRequest.service_id)
+            .group_by(Service.id)
+            .order_by(func.count(ServiceRequest.id).desc())
+            .limit(5)
+            .all()
+        )
+        return jsonify({
+            "services": [service.name for service in top_services],
+            "counts": [service.count for service in top_services]
+        })
+
+# 4. Professional Ratings
+class ProfessionalRatings(Resource):
+    def get(self):
+        ratings = (
+            db.session.query(
+                ServiceProfessional.name,
+                func.avg(ServiceRequest.rating).label("avg_rating")
+            )
+            .join(ServiceRequest, ServiceProfessional.id == ServiceRequest.professional_id)
+            .filter(ServiceRequest.rating.isnot(None))
+            .group_by(ServiceProfessional.id)
+            .order_by(func.avg(ServiceRequest.rating).desc())
+            .limit(10)
+            .all()
+        )
+        return jsonify({
+            "professionals": [rating.name for rating in ratings],
+            "ratings": [float(rating.avg_rating) for rating in ratings]
+        })
+
+# 5. Requests by Pincode
+class ServiceRequestsByPincode(Resource):
+    def get(self):
+        pincode_data = (
+            db.session.query(
+                Customer.pin_code,
+                func.count(ServiceRequest.id).label("count")
+            )
+            .join(ServiceRequest, Customer.id == ServiceRequest.customer_id)
+            .group_by(Customer.pin_code)
+            .order_by(func.count(ServiceRequest.id).desc())
+            .limit(10)
+            .all()
+        )
+        return jsonify({
+            "pincodes": [data.pin_code for data in pincode_data],
+            "counts": [data.count for data in pincode_data]
+        })
+
+# Register API Endpoints
+api.add_resource(ServiceRequestStats, '/service_requests/stats')
+api.add_resource(ServiceRequestTrends, '/service_requests/monthly')
+api.add_resource(TopServices, '/services/popular')
+api.add_resource(ProfessionalRatings, '/professionals/ratings')
+api.add_resource(ServiceRequestsByPincode, '/service_requests/pincode_distribution')

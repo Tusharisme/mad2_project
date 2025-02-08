@@ -11,12 +11,12 @@ export default {
                 <p class="chart-title">Service Completion Status</p>
                 </div>
                 <div class="chart-container">
-                <canvas id="categoryChart"></canvas>
-                <p class="chart-title">Service Categories</p>
-                </div>
-                <div class="chart-container">
                 <canvas id="requestsChart"></canvas>
                 <p class="chart-title">Service Requests Over Time</p>
+                </div>
+                <div class="chart-container">
+                <canvas id="ratingsChart"></canvas>
+                <p class="chart-title">Customer Ratings Over Time</p>
                 </div>
             </div>
             </div>
@@ -26,7 +26,7 @@ export default {
 
   mounted() {
     const user = JSON.parse(localStorage.getItem("user"));
-    const userId = user ? user.user_id : null;
+    const userId = user ? user.professional_id : null;
     if (!userId) {
       console.error("User ID is not available");
       return;
@@ -60,65 +60,49 @@ export default {
             },
           ],
         };
-        const statusChart = new Chart(
-          document.getElementById("statusChart").getContext("2d"),
-          {
-            type: "doughnut",
-            data: statusData,
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-            },
-          }
-        );
-
-        // Service Categories (Bar Chart)
-        const categoryData = {
-          labels: data.category_data.labels,
-          datasets: [
-            {
-              label: "Service Categories",
-              backgroundColor: "rgba(153, 102, 255, 0.6)",
-              data: data.category_data.values,
-            },
-          ],
-        };
-        const categoryChart = new Chart(
-          document.getElementById("categoryChart").getContext("2d"),
-          {
-            type: "bar",
-            data: categoryData,
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-            },
-          }
-        );
+        new Chart(document.getElementById("statusChart").getContext("2d"), {
+          type: "doughnut",
+          data: statusData,
+          options: { responsive: true, maintainAspectRatio: false },
+        });
 
         // Service Requests Over Time (Line Chart)
         const requestsData = {
-          labels: data.requests_data.labels,
+          labels: data.requests_over_time.labels,
           datasets: [
             {
               label: "Service Requests",
               backgroundColor: "rgba(255, 159, 64, 0.6)",
               borderColor: "rgba(255, 159, 64, 1)",
-              data: data.requests_data.values,
+              data: data.requests_over_time.values,
               fill: false,
             },
           ],
         };
-        const requestsChart = new Chart(
-          document.getElementById("requestsChart").getContext("2d"),
-          {
-            type: "line",
-            data: requestsData,
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
+        new Chart(document.getElementById("requestsChart").getContext("2d"), {
+          type: "line",
+          data: requestsData,
+          options: { responsive: true, maintainAspectRatio: false },
+        });
+
+        // Customer Ratings Over Time (Line Chart)
+        const ratingsData = {
+          labels: data.ratings_over_time.labels,
+          datasets: [
+            {
+              label: "Average Ratings",
+              backgroundColor: "rgba(75, 192, 192, 0.6)",
+              borderColor: "rgba(75, 192, 192, 1)",
+              data: data.ratings_over_time.values,
+              fill: false,
             },
-          }
-        );
+          ],
+        };
+        new Chart(document.getElementById("ratingsChart").getContext("2d"), {
+          type: "line",
+          data: ratingsData,
+          options: { responsive: true, maintainAspectRatio: false },
+        });
       })
       .catch((error) => {
         console.error("There was a problem with the fetch operation:", error);
