@@ -7,7 +7,7 @@ from backend.models import Customer, ProfessionalService, Service, ServiceProfes
 datastore = app.security.datastore
 cache = app.cache
 from backend.models import User
-from backend.celery.tasks import add, create_csv
+# from backend.celery.tasks import add, create_csv
 from celery.result import AsyncResult
 
 @app.get('/')

@@ -271,8 +271,12 @@ export default {
     },
     // Validate the rating and show an alert if it is out of range
     validateAndSubmit() {
-      if (this.customerRating < 1 || this.customerRating > 5) {
-        alert("Please enter a rating between 1 and 5.");
+      if (
+        this.customerRating < 1 ||
+        this.customerRating > 5 ||
+        this.customerRemark == ""
+      ) {
+        alert("Please enter a rating between 1 and 5. And give the remark");
         return; // Prevent submission if the rating is out of range
       }
       this.completeService(); // Proceed to submit the form if validation passes

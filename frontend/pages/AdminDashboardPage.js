@@ -107,118 +107,110 @@ export default {
 
       const ctx = chartElement.getContext("2d");
 
-      let config;
+      const configs = {
+        requests: {
+          type: "pie",
+          data: {
+            labels: Object.keys(data),
+            datasets: [
+              {
+                data: Object.values(data),
+                backgroundColor: ["green", "red", "blue", "orange"],
+              },
+            ],
+          },
+        },
+        trends: {
+          type: "line",
+          data: {
+            labels: data.months,
+            datasets: [
+              {
+                label: "Requests",
+                data: data.counts,
+                borderColor: "blue",
+                fill: false,
+              },
+            ],
+          },
+        },
+        topServices: {
+          type: "bar",
+          data: {
+            labels: data.services,
+            datasets: [
+              {
+                label: "Bookings",
+                data: data.counts,
+                backgroundColor: "purple",
+                maxBarThickness: 100, // Set maximum bar thickness in pixels
+              },
+            ],
+          },
+          options: {
+            maintainAspectRatio: true,
+            responsive: true,
+            elements: {
+              bar: {
+                barPercentage: 0.9,
+                categoryPercentage: 0.1,
+              },
+            },
+          },
+        },
+        ratings: {
+          type: "bar",
+          data: {
+            labels: data.professionals,
+            datasets: [
+              {
+                label: "Ratings",
+                data: data.ratings,
+                backgroundColor: "gold",
+                maxBarThickness: 100, // Set maximum bar thickness in pixels
+              },
+            ],
+          },
+          options: {
+            maintainAspectRatio: true,
+            responsive: true,
 
-      if (type === "requests") {
-        // Check if data is an array
-        if (Array.isArray(data)) {
-          const labels = data.map((item) => item[0]);
-          const counts = data.map((item) => item[1]);
-          config = {
-            type: "pie",
-            data: {
-              labels: labels,
-              datasets: [
-                {
-                  data: counts,
-                  backgroundColor: ["green", "red", "blue", "orange"],
-                },
-              ],
-            },
-          };
-        } else if (typeof data === "object" && data !== null) {
-          // If data is an object, use its keys and values
-          const labels = Object.keys(data);
-          const counts = Object.values(data);
-          config = {
-            type: "pie",
-            data: {
-              labels: labels,
-              datasets: [
-                {
-                  data: counts,
-                  backgroundColor: ["green", "red", "blue", "orange"],
-                },
-              ],
-            },
-          };
-        } else {
-          console.error("Unexpected data format for requests chart");
-          return;
-        }
-      } else {
-        // Use the predefined configs for other chart types
-        config = {
-          requests: {
-            type: "pie",
-            data: {
-              labels: ["Pending", "Accepted", "Completed", "Rejected"],
-              datasets: [
-                {
-                  data: data.counts,
-                  backgroundColor: ["blue", "green", "orange", "red"],
-                },
-              ],
+            elements: {
+              bar: {
+                barPercentage: 0.5,
+                categoryPercentage: 0.8,
+              },
             },
           },
-          trends: {
-            type: "line",
-            data: {
-              labels: data.months,
-              datasets: [
-                {
-                  label: "Requests",
-                  data: data.counts,
-                  borderColor: "blue",
-                  fill: false,
-                },
-              ],
+        },
+        pincode: {
+          type: "bar",
+          data: {
+            labels: data.pincodes,
+            datasets: [
+              {
+                label: "Requests",
+                data: data.counts,
+                backgroundColor: "teal",
+                maxBarThickness: 100, // Set maximum bar thickness in pixels
+              },
+            ],
+          },
+          options: {
+            elements: {
+              maintainAspectRatio: true,
+              responsive: true,
+              bar: {
+                barPercentage: 0.5,
+                categoryPercentage: 0.8,
+              },
             },
           },
-          topServices: {
-            type: "bar",
-            data: {
-              labels: data.services,
-              datasets: [
-                {
-                  label: "Bookings",
-                  data: data.counts,
-                  backgroundColor: "purple",
-                },
-              ],
-            },
-          },
-          ratings: {
-            type: "bar",
-            data: {
-              labels: data.professionals,
-              datasets: [
-                {
-                  label: "Ratings",
-                  data: data.ratings,
-                  backgroundColor: "gold",
-                },
-              ],
-            },
-          },
-          pincode: {
-            type: "bar",
-            data: {
-              labels: data.pincodes,
-              datasets: [
-                {
-                  label: "Requests",
-                  data: data.counts,
-                  backgroundColor: "teal",
-                },
-              ],
-            },
-          },
-        }[type];
-      }
+        },
+      };
 
       try {
-        this.charts[type] = new Chart(ctx, config);
+        this.charts[type] = new Chart(ctx, configs[type]);
         console.log(`Chart created successfully for type: ${type}`);
       } catch (err) {
         console.error(

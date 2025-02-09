@@ -338,3 +338,79 @@ button {
   margin-top: 10px;
   font-weight: bold;
 }
+h2 {
+  margin-bottom: 30px;
+  font-size: 2rem;
+}
+
+.nav-tabs {
+  justify-content: center;
+}
+
+.nav-item .nav-link {
+  cursor: pointer;
+  padding: 10px 20px;
+  font-size: 1rem;
+}
+
+.nav-link.active {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+
+canvas {
+  display: flex;
+  margin: 20px auto;
+  max-width: 90%;
+  height: auto; /* Maintain aspect ratio */
+  width: 80% !important; /* Relative width for better responsiveness */
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Bar chart adjustments */
+canvas#topServicesChart,
+canvas#ratingsChart,
+canvas#pincodeChart {
+  aspect-ratio: 2 / 1; /* Wider aspect ratio for bar charts */
+  height: auto !important;
+}
+
+/* Specific styling for pie chart */
+canvas#requestsChart {
+  aspect-ratio: 1 / 1; /* Maintain a square shape */
+  height: auto !important; /* Automatically adjust height */
+  width: 60% !important; /* Reduce the width */
+  max-width: 400px; /* Limit the maximum size */
+  margin: 0 auto; /* Center the chart */
+}
+
+/* General container styling */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Smaller screens adjustments */
+@media (max-width: 768px) {
+  canvas {
+    height: auto !important; /* Allow charts to adapt naturally */
+    width: 100% !important;
+  }
+  canvas#requestsChart {
+    width: 80% !important; /* Slightly larger on medium screens */
+    max-width: 300px; /* Keep it contained */
+  }
+}
+
+@media (max-width: 576px) {
+  .nav-item .nav-link {
+    padding: 8px 15px;
+    font-size: 0.9rem;
+  }
+  canvas#requestsChart {
+    width: 90% !important; /* Use most of the screen width */
+    max-width: 250px; /* Keep it manageable */
+  }
+}

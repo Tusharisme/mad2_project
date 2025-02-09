@@ -1,18 +1,25 @@
 from celery.schedules import crontab
 from flask import current_app as app
-from backend.celery.tasks import email_reminder
+from backend.celery.tasks import email_reminder, send_monthly_report
 
-celery_app=app.extensions['celery']
+celery_app = app.extensions['celery']
 
 
 @celery_app.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
-    # at particular hour of the day 
-    sender.add_periodic_task(crontab(hour=18,minute=55),email_reminder.s("student@gmail.com","reminder to login","hello kasie hai aap log"))
-    
-    # after the second
-    # sender.add_periodic_task(10.0,email_reminder.s("student@gmail.com","reminder to login","hello kasie hai aap log"),name="daily_reminder")
-    
-    # at particular week
-    # sender.add_periodic_task(crontab(hour=18,minute=55,day_of_week="monday"),email_reminder.s("student@gmail.com","reminder to login","hello kasie hai aap log"),name="weekly_reminder")
+    """
+    Set up periodic tasks using Celery's scheduler.
+    """
+    # Daily reminder task at 6:00 PM (IST)
+    sender.add_periodic_task(
+        crontab(hour=14, minute=44),
+        email_reminder.s(),
+        name="daily_service_request_reminders"
+    )
 
+    # Monthly report task on the 1st day of every month at midnight (IST)
+    sender.add_periodic_task(
+        crontab(hour=0, minute=0, day_of_month=1),
+        send_monthly_report.s(),
+        name="monthly_activity_report"
+    )
