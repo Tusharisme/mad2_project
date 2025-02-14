@@ -31,7 +31,6 @@ export default {
       console.error("User ID is not available");
       return;
     }
-
     fetch(`/api/customer-service-summary/${userId}`, {
       headers: {
         "Authentication-Token": this.$store.state.auth_token,
@@ -149,7 +148,8 @@ export default {
               },
             },
           },
-        }).catch((error) => console.error("Error fetching data:", error));
-      });
+        });
+      })
+      .catch((error) => console.error("Error fetching data:", error)); // ✅ Catch applied to the fetch chain
   },
 };

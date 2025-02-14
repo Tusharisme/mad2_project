@@ -3,7 +3,7 @@ import cloudinary
 from flask_login import current_user
 from flask_restful import Resource, Api, fields, marshal, marshal_with
 from sqlalchemy import func
-from backend.models import ProfessionalService, ServiceRequest, db, Customer, ServiceProfessional, User, Role, UserRoles, Service
+from backend.models import ProfessionalService, ProfessionalWallet, ServiceRequest, db, Customer, ServiceProfessional, User, Role, UserRoles, Service
 from flask import abort, current_app as app, request, jsonify, session
 from flask_security import auth_required, hash_password
 from sqlalchemy.orm import joinedload
@@ -569,11 +569,49 @@ class AcceptServiceRequestResource(Resource):
                 return {'message': 'Cannot accept service request unless it is in "requested" status'}, 400
 
             service_request.service_status = "accepted"
+
+            # Retrieve the payment record
+            payment = Payment.query.filter_by(service_request_id=request_id).first()
+            if payment:
+                payment.is_transferred = True
+                payment.payment_status = "Completed"
+
+                # Find the custom price for this service request if it exists
+                professional_service = ProfessionalService.query.filter_by(
+                    professional_id=service_request.professional_id,
+                    service_id=service_request.service_id,
+                ).first()
+
+                # Use custom price if set; otherwise, use base price
+                amount_to_transfer = (
+                    professional_service.custom_price
+                    if professional_service and professional_service.custom_price
+                    else professional_service.service.base_price
+                )
+
+                # Update the payment amount
+                payment.amount = amount_to_transfer
+
+                # Fetch or create the professional's wallet
+                professional_wallet = ProfessionalWallet.query.filter_by(
+                    professional_id=service_request.professional_id
+                ).first()
+
+                if not professional_wallet:
+                    professional_wallet = ProfessionalWallet(
+                        professional_id=service_request.professional_id, balance=0
+                    )
+                    db.session.add(professional_wallet)
+
+                # Transfer the calculated amount to the professional's wallet
+                professional_wallet.balance += amount_to_transfer
+
             db.session.commit()
-            return {'message': f'Service request {request_id} accepted'}, 200
+            return {'message': f'Service request {request_id} accepted and payment transferred'}, 200
         except Exception as e:
             db.session.rollback()
             return {'message': str(e)}, 500
+
 
 class RejectServiceRequestResource(Resource):
     @auth_required('token')
@@ -585,11 +623,48 @@ class RejectServiceRequestResource(Resource):
                 return {'message': 'Cannot reject service request unless it is in "requested" status'}, 400
 
             service_request.service_status = "rejected"
+
+            # Fetch the related payment
+            payment = Payment.query.filter_by(service_request_id=request_id).first()
+
+            if payment:
+                # Update payment status to "Refunded"
+                payment.payment_status = "Refunded"
+
+                # Calculate refund amount (custom price if available, else base price)
+                professional_service = ProfessionalService.query.filter_by(
+                    professional_id=service_request.professional_id,
+                    service_id=service_request.service_id,
+                ).first()
+
+                refund_amount = (
+                    professional_service.custom_price
+                    if professional_service and professional_service.custom_price
+                    else professional_service.service.base_price
+                )
+
+                # Update customer's wallet balance
+                wallet = Wallet.query.filter_by(
+                    customer_id=service_request.customer_id
+                ).first()
+                if wallet:
+                    wallet.balance += refund_amount
+                else:
+                    # Create wallet if it doesn't exist
+                    wallet = Wallet(
+                        customer_id=service_request.customer_id, balance=refund_amount
+                    )
+                    db.session.add(wallet)
+
+                # Update the payment amount to reflect the refund
+                payment.amount = refund_amount
+
             db.session.commit()
-            return {'message': f'Service request {request_id} rejected'}, 200
+            return {'message': f'Service request {request_id} rejected and payment refunded'}, 200
         except Exception as e:
             db.session.rollback()
             return {'message': str(e)}, 500
+
 
 class CloseServiceRequestResource(Resource):
     @auth_required('token')
@@ -604,7 +679,7 @@ class CloseServiceRequestResource(Resource):
             if service_request.service_status != "accepted":
                 return {'message': 'Cannot close a service request unless it is in "accepted" status'}, 400
 
-            service_request.service_status = "completed"
+            service_request.service_status = "Completed"
             service_request.date_of_completion = datetime.now(timezone.utc)
             service_request.customer_rating = rating
             service_request.customer_remarks = remarks
@@ -621,49 +696,87 @@ api.add_resource(AcceptServiceRequestResource, '/service_requests/<int:request_i
 api.add_resource(RejectServiceRequestResource, '/service_requests/<int:request_id>/reject')
 api.add_resource(CloseServiceRequestResource, '/service_requests/<int:request_id>/close')
 
-# Ensure this resource is properly registered
 class ServiceRequestResource(Resource):
     @auth_required('token')
     def post(self):
         try:
             data = request.get_json()
             required_fields = ['professional_id', 'service_id', 'customer_id', 'requested_date', 'requested_time']
+            
+            # Check if all required fields are present
             for field in required_fields:
                 if field not in data:
                     return {'message': f'Missing {field} field'}, 400
+
+            # Fetch customer and professional details
             customer = Customer.query.get(data['customer_id'])
             professional = ServiceProfessional.query.get(data['professional_id'])
 
-            # Check if either party is blocked
+            # Check if customer or professional is blocked
             if customer.is_blocked:
                 return {'message': 'Customer account is blocked'}, 403
             if professional.block_status:
                 return {'message': 'Professional account is blocked'}, 403
 
-            # Convert requested_date to a datetime object
-            requested_date = datetime.strptime(data['requested_date'], '%Y-%m-%d').date()
+            # Validate requested date and time
+            try:
+                requested_date = datetime.strptime(data['requested_date'], '%Y-%m-%d').date()
+                requested_time = datetime.strptime(data['requested_time'], '%H:%M').time()
+            except ValueError:
+                return {'message': 'Invalid date or time format'}, 400
 
-            # Convert requested_time to a time object (optional, based on how your database handles time)
-            requested_time = datetime.strptime(data['requested_time'], '%H:%M').time()
+            # Ensure the requested date is not in the past
+            if requested_date < datetime.utcnow().date():
+                return {'message': 'Cannot book a service for a past date'}, 400
 
+            # Fetch the service details
+            service = Service.query.get(data['service_id'])
+            if not service:
+                return {'message': 'Service not found'}, 404
+
+            # Fetch the professional's custom price for the service
+            professional_service = ProfessionalService.query.filter_by(
+                professional_id=data['professional_id'], 
+                service_id=data['service_id']
+            ).first()
+
+            if not professional_service:
+                return {'message': 'Professional does not offer this service'}, 404
+
+            amount = professional_service.custom_price if professional_service.custom_price else service.base_price
+
+            # Create the service request
             new_request = ServiceRequest(
                 service_id=data['service_id'],
                 customer_id=data['customer_id'],
                 professional_id=data['professional_id'],
-                date_of_request=datetime.now(timezone.utc),
+                date_of_request=datetime.utcnow(),
                 service_status="requested",
-                requested_date=requested_date,  # Use converted date
-                requested_time=requested_time,  # Use converted time
+                requested_date=requested_date,
+                requested_time=requested_time,
             )
 
             db.session.add(new_request)
+            db.session.commit()  # Commit to get new_request.id
+
+            # Create the payment record (without updating wallet yet)
+            new_payment = Payment(
+                service_request_id=new_request.id,
+                customer_id=data['customer_id'],
+                professional_id=data['professional_id'],
+                amount=amount,
+                payment_status="Pending",  # Initially Pending
+                is_transferred=False,
+                date_of_payment=datetime.utcnow(),
+            )
+
+            db.session.add(new_payment)
             db.session.commit()
 
             return {'message': 'Service request created successfully', 'id': new_request.id}, 201
 
         except Exception as e:
             db.session.rollback()
-            print("Error creating service request:", str(e))
             return {'message': str(e)}, 500
 
 # Add this at the bottom of the file
@@ -1071,9 +1184,9 @@ class ServiceRequestReviewResource(Resource):
         if not service_request:
             return {"message": "Service request not found."}, 404
 
-        # Check if the service is completed before accepting feedback
-        if service_request.service_status != "completed":
-            return {"message": "Service must be completed before leaving a review."}, 400
+        # Check if the service is Completed before accepting feedback
+        if service_request.service_status != "Completed":
+            return {"message": "Service must be Completed before leaving a review."}, 400
 
         # Update the review in the service request
         service_request.rating = rating
@@ -1105,7 +1218,7 @@ class CustomerServiceSummary(Resource):
             # Fetch service requests for the customer
             requests = ServiceRequest.query.filter_by(customer_id=customer.id).all()
             # Initialize counters
-            status_counts = {"accepted": 0, "rejected": 0, "completed": 0, "pending": 0}
+            status_counts = {"accepted": 0, "rejected": 0, "Completed": 0, "Pending": 0}
             category_counts = {}
             requests_over_time = {}
 
@@ -1115,10 +1228,10 @@ class CustomerServiceSummary(Resource):
                     status_counts["accepted"] += 1
                 elif req.service_status == "rejected":
                     status_counts["rejected"] += 1
-                elif req.service_status == "completed":
-                    status_counts["completed"] += 1
+                elif req.service_status == "Completed":
+                    status_counts["Completed"] += 1
                 elif req.service_status == "requested":
-                    status_counts["pending"] += 1
+                    status_counts["Pending"] += 1
 
                 # Count service categories
                 if req.service:
@@ -1136,8 +1249,8 @@ class CustomerServiceSummary(Resource):
                     "values": [
                         status_counts["accepted"],
                         status_counts["rejected"],
-                        status_counts["completed"],
-                        status_counts["pending"],
+                        status_counts["Completed"],
+                        status_counts["Pending"],
                     ],
                 },
                 "category_data": {
@@ -1173,7 +1286,7 @@ class ProfessionalServiceSummary(Resource):
             requests = ServiceRequest.query.filter_by(professional_id=professional.id).all()
             
             # Initialize counters
-            status_counts = {"accepted": 0, "rejected": 0, "completed": 0, "pending": 0}
+            status_counts = {"accepted": 0, "rejected": 0, "Completed": 0, "Pending": 0}
             requests_over_time = {}
             ratings_over_time = {}
 
@@ -1183,10 +1296,10 @@ class ProfessionalServiceSummary(Resource):
                     status_counts["accepted"] += 1
                 elif req.service_status == "rejected":
                     status_counts["rejected"] += 1
-                elif req.service_status == "completed":
-                    status_counts["completed"] += 1
+                elif req.service_status == "Completed":
+                    status_counts["Completed"] += 1
                 elif req.service_status == "requested":
-                    status_counts["pending"] += 1
+                    status_counts["Pending"] += 1
                 
                 # Count requests over time (grouped by month)
                 if req.requested_date:
@@ -1214,8 +1327,8 @@ class ProfessionalServiceSummary(Resource):
                     "values": [
                         status_counts["accepted"],
                         status_counts["rejected"],
-                        status_counts["completed"],
-                        status_counts["pending"],
+                        status_counts["Completed"],
+                        status_counts["Pending"],
                     ],
                 },
                 "requests_over_time": {
@@ -1339,145 +1452,6 @@ api.add_resource(ServiceRequestsByPincode, '/service_requests/pincode_distributi
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
-
-# cloudinary.config(
-#     cloud_name="your_cloud_name",
-#     api_key="your_api_key",
-#     api_secret="your_api_secret",
-#     secure=True
-# )
-
-# class ProfessionalProfileResource(Resource):
-#     @auth_required("token")
-#     def get(self, professional_id):
-#         professional = ServiceProfessional.query.filter_by(id=professional_id).first()
-        
-#         if not professional:
-#             return {"message": "Professional not found"}, 404
-
-#         professional_services = ProfessionalService.query.filter_by(professional_id=professional.id).all()
-
-#         return {
-#             "professional": {
-#                 "id": professional.id,
-#                 "name": professional.name,
-#                 "username": professional.username,
-#                 "email": professional.email,
-#                 "address": professional.address,
-#                 "pin_code": professional.pin_code,
-#                 "gender": professional.gender,
-#                 "profile_pic": professional.profile_pic,
-#             },
-#             "services": [
-#                 {
-#                     "service_id": service.service_id,
-#                     "custom_price": service.custom_price,
-#                     "custom_description": service.custom_description,
-#                     "custom_time_required": service.custom_time_required,
-#                     "base_price": service.service.base_price,
-#                     "service_name": service.service.name
-#                 }
-#                 for service in professional_services
-#             ]
-#         }, 200
-
-#     @auth_required("token")
-#     def put(self, professional_id):
-#         professional = ServiceProfessional.query.filter_by(id=professional_id).first()
-        
-#         if not professional:
-#             return {"message": "Professional not found"}, 404
-
-#         data = request.json
-#         name = data.get("name")
-#         username = data.get("username")
-#         email = data.get("email")
-#         address = data.get("address")
-#         pin_code = data.get("pin_code")
-#         gender = data.get("gender")
-
-#         existing_username_professional = ServiceProfessional.query.filter(
-#             ServiceProfessional.username == username, ServiceProfessional.id != professional_id
-#         ).first()
-#         existing_username_customer = Customer.query.filter(Customer.username == username).first()
-
-#         existing_email_professional = ServiceProfessional.query.filter(
-#             ServiceProfessional.email == email, ServiceProfessional.id != professional_id
-#         ).first()
-#         existing_email_customer = Customer.query.filter(Customer.email == email).first()
-
-#         if existing_username_professional or existing_username_customer:
-#             return {"message": "Username already exists."}, 400
-#         if existing_email_professional or existing_email_customer:
-#             return {"message": "Email address already exists."}, 400
-
-#         if "profile_pic" in request.files:
-#             file = request.files["profile_pic"]
-#             if file:
-#                 upload_result = cloudinary.uploader.upload(file, folder="professional_profile_pic")
-#                 professional.profile_pic = upload_result.get("secure_url")
-
-#         professional.name = name
-#         professional.username = username
-#         professional.email = email
-#         professional.address = address
-#         professional.pin_code = pin_code
-#         professional.gender = gender
-
-#         db.session.commit()
-#         return {"message": "Profile updated successfully."}, 200
-
-
-# class ProfessionalServicesResource(Resource):
-#     @auth_required("token")
-#     def put(self, professional_id):
-#         professional_services = ProfessionalService.query.filter_by(professional_id=professional_id).all()
-        
-#         if not professional_services:
-#             return {"message": "Professional services not found"}, 404
-
-#         data = request.json
-        
-#         for service in professional_services:
-#             service_data = next((s for s in data if s["service_id"] == service.service_id), None)
-#             if service_data:
-#                 custom_price = service_data.get("custom_price")
-#                 custom_description = service_data.get("custom_description")
-#                 custom_time_required = service_data.get("custom_time_required")
-                
-#                 if custom_price and float(custom_price) < float(service.service.base_price):
-#                     return {"message": "Custom price cannot be less than the base price."}, 400
-                
-#                 service.custom_price = custom_price
-#                 service.custom_description = custom_description
-#                 service.custom_time_required = custom_time_required
-        
-#         db.session.commit()
-#         return {"message": "Services updated successfully."}, 200
-
-# class ServiceProfessionalResource(Resource):
-#     @auth_required('token')
-#     def get(self, professional_id):
-#         professional = ServiceProfessional.query.get(professional_id)
-#         if not professional:
-#             return {"message": "Professional not found"}, 404
-        
-#         # Check if professional is linked to a User
-#         user = professional.user  # Assuming a relationship exists
-#         return {
-#             "id": professional.id,
-#             "name": professional.name,  # Use the correct field
-#             "email": user.email if user else None,  # Fetch from User table if available
-#             "phone": professional.phone,  # Correct field from your model
-#             "experience": professional.experience,
-#             "rating": professional.rating
-#         }, 200
-
-
-# # Register API resources
-# api.add_resource(ProfessionalProfileResource, "/professional/profile/<int:professional_id>")
-# api.add_resource(ProfessionalServicesResource, "/professional/profile/<int:professional_id>/update_services")
-# api.add_resource(ServiceProfessionalResource, "/professional/profile/<int:professional_id>/services")
 
 
 class ProfessionalProfileResource(Resource):
@@ -1633,3 +1607,126 @@ class CustomerProfileResource(Resource):
             return {"error": "Database update failed", "details": str(e)}, 500
 
 api.add_resource(CustomerProfileResource, '/customer/profile/<int:customer_id>')
+
+
+
+from flask_restful import Resource, marshal_with, fields
+from flask_security import auth_required, current_user
+from backend.models import Payment, Wallet
+# Define fields for marshalling payments
+payment_fields = {
+    'id': fields.Integer,
+    'amount': fields.Float,
+    'date_of_payment': fields.DateTime,
+    'payment_status': fields.String,
+    'is_transferred': fields.Boolean,
+    'service_name': fields.String(attribute='service_request.service.name'),
+    'professional_name': fields.String(attribute='service_request.professional.name'),
+    'professional_email': fields.String(attribute='service_request.professional.email'),
+}
+
+# Define fields for wallet
+wallet_fields = {
+    'balance': fields.Float
+}
+
+class CustomerPaymentResource(Resource):
+    @auth_required('token')
+    @marshal_with({'payments': fields.List(fields.Nested(payment_fields)), 'wallet': fields.Nested(wallet_fields)})
+    def get(self):
+        # Get the customer from the logged-in user
+        customer = current_user.customer
+        print(f"Customer ID: {customer.id}")
+        if not customer:
+            return {"error": "Customer profile not found"}, 404
+
+        # Fetch all payments associated with the customer
+        payments = Payment.query.filter_by(customer_id=customer.id).order_by(Payment.date_of_payment.desc()).all()
+        
+        # Fetch wallet balance
+        wallet = Wallet.query.filter_by(customer_id=customer.id).first()
+
+        return {
+            "payments": payments,
+            "wallet": wallet if wallet else {"balance": 0.0}  # Default balance if wallet doesn't exist
+        }
+
+# Add the resource to the API
+api.add_resource(CustomerPaymentResource, '/customer/payments')
+
+class ProfessionalPaymentResource(Resource):
+    @auth_required('token')
+    @marshal_with({'payments': fields.List(fields.Nested(payment_fields)), 'wallet': fields.Nested(wallet_fields)})
+    def get(self):
+        # Get the professional from the logged-in user
+        professional = current_user.service_professional
+        if not professional:
+            return {"error": "Professional profile not found"}, 404
+
+        # Fetch all payments associated with the professional
+        payments = Payment.query.filter_by(professional_id=professional.id).order_by(Payment.date_of_payment.desc()).all()
+        
+        # Fetch wallet balance
+        wallet = ProfessionalWallet.query.filter_by(professional_id=professional.id).first()
+
+        return {
+            "payments": payments,
+            "wallet": wallet if wallet else {"balance": 0.0}  # Default balance if wallet doesn't exist
+        }
+
+# Add the resource to the API
+api.add_resource(ProfessionalPaymentResource, '/professional/payments')
+
+
+class CancelServiceResource(Resource):
+    @auth_required('token')
+    def post(self, service_request_id):
+        try:
+            # Fetch the service request
+            service_request = ServiceRequest.query.get(service_request_id)
+
+            if not service_request:
+                return {'message': 'Service request not found'}, 404
+
+            # Ensure only 'requested' services can be cancelled
+            if service_request.service_status != "requested":
+                return {'message': 'Service cannot be cancelled at this stage'}, 400
+
+            # Update service request status
+            service_request.service_status = "cancelled"
+
+            # Fetch related payment
+            payment = Payment.query.filter_by(service_request_id=service_request_id).first()
+            if payment:
+                # Mark payment as "Cancelled"
+                payment.payment_status = "Cancelled"
+
+                # Determine refund amount (custom price if available, otherwise base price)
+                professional_service = ProfessionalService.query.filter_by(
+                    professional_id=service_request.professional_id,
+                    service_id=service_request.service_id
+                ).first()
+
+                refund_amount = (
+                    professional_service.custom_price
+                    if professional_service and professional_service.custom_price
+                    else payment.amount
+                )
+
+                # Update customer's wallet balance
+                wallet = Wallet.query.filter_by(customer_id=service_request.customer_id).first()
+                if wallet:
+                    wallet.balance += refund_amount
+                else:
+                    # Create wallet if it doesn't exist
+                    wallet = Wallet(customer_id=service_request.customer_id, balance=refund_amount)
+                    db.session.add(wallet)
+
+            db.session.commit()
+            return {'message': 'Service cancelled and payment refunded'}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            return {'message': str(e)}, 500
+        
+api.add_resource(CancelServiceResource, '/cancel_service/<int:service_request_id>')

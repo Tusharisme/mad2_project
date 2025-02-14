@@ -6,7 +6,7 @@ export default {
       <!-- Service History Tabs -->
       <ul class="nav nav-tabs mb-4">
           <li class="nav-item">
-              <a class="nav-link" :class="{ active: activeTab === 'pending' }" @click="activeTab = 'pending'">Pending
+              <a class="nav-link" :class="{ active: activeTab === 'Pending' }" @click="activeTab = 'Pending'">Pending
                   Requests</a>
           </li>
           <li class="nav-item">
@@ -14,8 +14,8 @@ export default {
                   Requests</a>
           </li>
           <li class="nav-item">
-              <a class="nav-link" :class="{ active: activeTab === 'completed' }"
-                  @click="activeTab = 'completed'">Completed Services</a>
+              <a class="nav-link" :class="{ active: activeTab === 'Completed' }"
+                  @click="activeTab = 'Completed'">Completed Services</a>
           </li>
           <li class="nav-item">
               <a class="nav-link" :class="{ active: activeTab === 'rejected' }" @click="activeTab = 'rejected'">Rejected
@@ -23,33 +23,40 @@ export default {
           </li>
       </ul>
   
-      <!-- Pending Requests Table -->
-      <div v-if="activeTab === 'pending'" class="table-responsive">
-          <h3>Pending Service Requests</h3>
-          <div v-if="pendingRequests.length > 0">
-              <table class="table table-striped">
-                  <thead>
-                      <tr>
-                          <th>Request ID</th>
-                          <th>Service Name</th>
-                          <th>Requested Date</th>
-                          <th>Status</th>
-                      </tr>
-                  </thead>
-                  <tbody>
-                      <tr v-for="request in pendingRequests" :key="request.id">
-                          <td>{{ request.id }}</td>
-                          <td>{{ request.service.name }}</td>
-                          <td>{{ formatDate(request.requested_date) }}</td>
-                          <td>{{ request.service_status }}</td>
-                      </tr>
-                  </tbody>
-              </table>
-          </div>
-          <div v-else class="alert alert-info mt-3">
-              <p class="mb-0">No pending service requests available.</p>
-          </div>
-      </div>
+            <!-- Pending Requests Table -->
+            <div v-if="activeTab === 'Pending'" class="table-responsive">
+            <h3>Pending Service Requests</h3>
+            <div v-if="pendingRequests.length > 0">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Request ID</th>
+                            <th>Service Name</th>
+                            <th>Requested Date</th>
+                            <th>Status</th>
+                            <th>Action</th> <!-- New column for Cancel Button -->
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="request in pendingRequests" :key="request.id">
+                            <td>{{ request.id }}</td>
+                            <td>{{ request.service.name }}</td>
+                            <td>{{ formatDate(request.requested_date) }}</td>
+                            <td>{{ request.service_status }}</td>
+                            <td>
+                                <button class="btn btn-danger" @click="cancelService(request.id)">
+                                    Cancel
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div v-else class="alert alert-info mt-3">
+                <p class="mb-0">No Pending service requests available.</p>
+            </div>
+        </div>
+
   
       <!-- Accepted Requests Table -->
       <div v-if="activeTab === 'accepted'" class="table-responsive">
@@ -80,7 +87,7 @@ export default {
       </div>
   
       <!-- Completed Services Table -->
-      <div v-if="activeTab === 'completed'" class="table-responsive">
+      <div v-if="activeTab === 'Completed'" class="table-responsive">
           <h3>Completed Services</h3>
           <div v-if="completedRequests.length > 0">
               <table class="table table-striped">
@@ -109,7 +116,7 @@ export default {
               </table>
           </div>
           <div v-else class="alert alert-info mt-3">
-              <p class="mb-0">No completed services yet.</p>
+              <p class="mb-0">No Completed services yet.</p>
           </div>
       </div>
   
@@ -182,7 +189,7 @@ export default {
 
   data() {
     return {
-      activeTab: "pending",
+      activeTab: "Pending",
       pendingRequests: [],
       acceptedRequests: [],
       completedRequests: [],
@@ -190,7 +197,7 @@ export default {
       customerId: null,
       customerRating: null, // Added to store the rating
       customerRemark: "", // Added to store the remark
-      currentRequest: null, // Store the request currently being marked as completed
+      currentRequest: null, // Store the request currently being marked as Completed
       modalProfessionalName: "", // Professional name for the modal
       modalProfessionalId: "", // Professional ID for the modal
       modalServiceName: "", // Service name for the modal
@@ -228,7 +235,7 @@ export default {
           (req) => req.service_status === "accepted"
         );
         this.completedRequests = data.filter(
-          (req) => req.service_status === "completed"
+          (req) => req.service_status === "Completed"
         );
         this.rejectedRequests = data.filter(
           (req) => req.service_status === "rejected"
@@ -237,7 +244,26 @@ export default {
         console.error("Error fetching service history:", error);
       }
     },
+    async cancelService(serviceId) {
+      if (!confirm("Are you sure you want to cancel this service?")) return;
 
+      try {
+        const response = await fetch(`/api/cancel_service/${serviceId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authentication-Token": this.$store.state.auth_token,
+          },
+        });
+
+        if (!response.ok) throw new Error("Failed to cancel service");
+
+        alert("Service canceled successfully");
+        this.fetchServiceHistory(); // Refresh service history
+      } catch (error) {
+        console.error("Error canceling service:", error);
+      }
+    },
     formatDate(dateString) {
       const options = { year: "numeric", month: "short", day: "numeric" };
       return new Date(dateString).toLocaleDateString(undefined, options);

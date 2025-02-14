@@ -19,6 +19,8 @@ import LogisticPageCustomer from "../pages/LogisticPageCustomer.js";
 import LogisticPageProfessional from "../pages/LogisticPageProfessional.js";
 import ProfessionalProfile from "../pages/ProfessionalProfile.js";
 import CustomerProfile from "../pages/CustomerProfile.js";
+import CustomerPayment from "../pages/CustomerPayment.js";
+import ProfessionalPayment from "../pages/ProfessionalPayment.js";
 
 const routes = [
   { path: "/", component: LandingPage },
@@ -107,6 +109,16 @@ const routes = [
     path: "/customer_profile",
     component: CustomerProfile,
     meta: { requiresLogin: true, role: "customer" },
+  },
+  {
+    path: "/customer_payment",
+    component: CustomerPayment,
+    meta: { requiresLogin: true, role: "customer" },
+  },
+  {
+    path: "/professional_payment",
+    component: ProfessionalPayment,
+    meta: { requiresLogin: true, role: "professional" },
   },
 ];
 

@@ -6,16 +6,16 @@ export default {
     <!-- Service Requests Tabs -->
     <ul class="nav nav-tabs mb-4">
       <li class="nav-item">
-        <a class="nav-link" :class="{ active: activeTab === 'pending' }" 
-           @click="activeTab = 'pending'">Pending Requests</a>
+        <a class="nav-link" :class="{ active: activeTab === 'Pending' }" 
+           @click="activeTab = 'Pending'">Pending Requests</a>
       </li>
       <li class="nav-item">
         <a class="nav-link" :class="{ active: activeTab === 'accepted' }" 
            @click="activeTab = 'accepted'">Accepted Requests</a>
       </li>
       <li class="nav-item">
-        <a class="nav-link" :class="{ active: activeTab === 'completed' }" 
-           @click="activeTab = 'completed'">Completed Services</a>
+        <a class="nav-link" :class="{ active: activeTab === 'Completed' }" 
+           @click="activeTab = 'Completed'">Completed Services</a>
       </li>
       <li class="nav-item">
         <a class="nav-link" :class="{ active: activeTab === 'rejected' }" 
@@ -24,7 +24,7 @@ export default {
     </ul>
 
     <!-- Pending Requests Table -->
-    <div v-if="activeTab === 'pending'" class="table-responsive">
+    <div v-if="activeTab === 'Pending'" class="table-responsive">
       <h3>Pending Service Requests</h3>
       <div v-if="pendingRequests.length > 0">
         <table class="table table-striped">
@@ -53,7 +53,7 @@ export default {
         </table>
       </div>
       <div v-else class="alert alert-info mt-3">
-        <p class="mb-0">No pending service requests available at the moment.</p>
+        <p class="mb-0">No Pending service requests available at the moment.</p>
       </div>
     </div>
 
@@ -92,7 +92,7 @@ export default {
     </div>
 
     <!-- Completed Services Table -->
-    <div v-if="activeTab === 'completed'" class="table-responsive">
+    <div v-if="activeTab === 'Completed'" class="table-responsive">
       <h3>Completed Services</h3>
       <div v-if="completedRequests.length > 0">
         <table class="table table-striped">
@@ -117,7 +117,7 @@ export default {
         </table>
       </div>
       <div v-else class="alert alert-info mt-3">
-        <p class="mb-0">You haven't completed any services yet.</p>
+        <p class="mb-0">You haven't Completed any services yet.</p>
       </div>
     </div>
 
@@ -217,7 +217,7 @@ export default {
 
   data() {
     return {
-      activeTab: "pending",
+      activeTab: "Pending",
       pendingRequests: [],
       acceptedRequests: [],
       completedRequests: [],
@@ -300,7 +300,7 @@ export default {
           (req) => req.service_status === "accepted"
         );
         this.completedRequests = requests.filter(
-          (req) => req.service_status === "completed"
+          (req) => req.service_status === "Completed"
         );
         this.rejectedRequests = requests.filter(
           (req) => req.service_status === "rejected"

@@ -8,7 +8,7 @@ import os
 @shared_task(ignore_result=True)
 def email_reminder():
     """
-    Task to send daily reminders to service professionals with pending service requests.
+    Task to send daily reminders to service professionals with Pending service requests.
     """
     professionals_with_pending_requests = (
         ServiceProfessional.query.join(ServiceRequest, ServiceProfessional.id == ServiceRequest.professional_id)
@@ -25,7 +25,7 @@ def email_reminder():
         content = f"""
         Dear {professional.name},
         
-        You have {pending_requests} pending service requests that need your attention.
+        You have {pending_requests} Pending service requests that need your attention.
         Please log in to your dashboard to accept or reject these requests.
 
         Best regards,
@@ -95,7 +95,7 @@ def create_csv():
     output_file = os.path.join(output_dir, "closed_services.csv")
 
     closed_services = ServiceRequest.query.filter(
-        ServiceRequest.service_status == 'completed',
+        ServiceRequest.service_status == 'Completed',
         ServiceRequest.remarks.isnot(None)  # Ensures customer_remark is not null
     ).all()
 

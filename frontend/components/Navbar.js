@@ -57,7 +57,7 @@ export default {
           <router-link class="dropdown-item" to="/searchCustomer">Search Services</router-link>
           <router-link class="dropdown-item" to="/service_history_customer">Service History</router-link>
           <router-link class="dropdown-item" to="/logistic_page_customer">Logistics</router-link>
-          <router-link class="dropdown-item" to="/payment">Payment</router-link>
+          <router-link class="dropdown-item" to="/customer_payment">Payment</router-link>
         </ul>
       </div>
 
@@ -87,7 +87,7 @@ export default {
           <router-link class="dropdown-item" to="/searchProfessional">Search Customers</router-link>
           <router-link class="dropdown-item" to="/service_history">Service History</router-link>
           <router-link class="dropdown-item" to="/logistic_page_professional">Logistics</router-link>
-          <router-link class="dropdown-item" to="/payment">Payment</router-link>
+          <router-link class="dropdown-item" to="/professional_payment">Payment</router-link>
         </ul>
       </div>
 
