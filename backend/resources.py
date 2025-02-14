@@ -13,7 +13,7 @@ cache=app.cache
 # Define the fields for marshalling the Customer data
 customer_fields = {
     'id': fields.Integer,
-    'username': fields.String,
+    'username': fields.String(attribute='user.username'),  # ✅ Explicitly link to User model
     'name': fields.String,
     'email': fields.String,
     'address': fields.String,
@@ -35,7 +35,7 @@ professional_service_fields = {
 # Define the fields for marshalling the Service Professional data
 service_professional_fields = {
     'id': fields.Integer,
-    'username': fields.String,
+    'username': fields.String(attribute='user.username'),
     'name': fields.String,
     'service_type': fields.String,
     'experience': fields.Integer,
@@ -45,7 +45,7 @@ service_professional_fields = {
     'pin_code': fields.String,
     'verified_status': fields.String,
     'gender': fields.String,
-    'profile_pic': fields.String,
+    'profile_picture_url': fields.String,
     'average_rating': fields.Float,
     'document': fields.String,
     'block_status': fields.Boolean,
@@ -83,6 +83,11 @@ service_request_fields = {
     'service': fields.Nested(service_fields),    # Add nested service details
 }
 
+# Extend professional_service_fields to include service details
+professional_service_with_details = {
+    **professional_service_fields,
+    'service': fields.Nested(service_fields)  # Include full service details
+}
 class CustomerResource(Resource):
     @auth_required('token')
     # @cache.memoize()
@@ -393,6 +398,13 @@ class CheckUsernameAvailabilityResource(Resource):
         except Exception as e:
             return jsonify({"message": str(e)}), 500
         
+class CheckEmailResource(Resource):
+    def get(self, email):
+        user = User.query.filter_by(email=email).first()
+        if user:
+            return jsonify({"available": False, "message": "Email is already taken"})
+        return jsonify({"available": True})
+    
 class ModifyProfessionalStatusResource(Resource):
     @auth_required('token')
     def post(self, action, id):
@@ -459,6 +471,7 @@ api.add_resource(ModifyProfessionalStatusResource, '/service_professionals/<stri
 
 # Add the new resource to the API
 api.add_resource(CheckUsernameAvailabilityResource, '/check-username/<string:username>')
+api.add_resource(CheckEmailResource, "/check-email/<string:email>")
 
 # Add the new resource to the API
 api.add_resource(ServiceResource, '/services/<int:service_id>')
@@ -1321,3 +1334,302 @@ api.add_resource(ServiceRequestTrends, '/service_requests/monthly')
 api.add_resource(TopServices, '/services/popular')
 api.add_resource(ProfessionalRatings, '/professionals/ratings')
 api.add_resource(ServiceRequestsByPincode, '/service_requests/pincode_distribution')
+
+
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+
+# cloudinary.config(
+#     cloud_name="your_cloud_name",
+#     api_key="your_api_key",
+#     api_secret="your_api_secret",
+#     secure=True
+# )
+
+# class ProfessionalProfileResource(Resource):
+#     @auth_required("token")
+#     def get(self, professional_id):
+#         professional = ServiceProfessional.query.filter_by(id=professional_id).first()
+        
+#         if not professional:
+#             return {"message": "Professional not found"}, 404
+
+#         professional_services = ProfessionalService.query.filter_by(professional_id=professional.id).all()
+
+#         return {
+#             "professional": {
+#                 "id": professional.id,
+#                 "name": professional.name,
+#                 "username": professional.username,
+#                 "email": professional.email,
+#                 "address": professional.address,
+#                 "pin_code": professional.pin_code,
+#                 "gender": professional.gender,
+#                 "profile_pic": professional.profile_pic,
+#             },
+#             "services": [
+#                 {
+#                     "service_id": service.service_id,
+#                     "custom_price": service.custom_price,
+#                     "custom_description": service.custom_description,
+#                     "custom_time_required": service.custom_time_required,
+#                     "base_price": service.service.base_price,
+#                     "service_name": service.service.name
+#                 }
+#                 for service in professional_services
+#             ]
+#         }, 200
+
+#     @auth_required("token")
+#     def put(self, professional_id):
+#         professional = ServiceProfessional.query.filter_by(id=professional_id).first()
+        
+#         if not professional:
+#             return {"message": "Professional not found"}, 404
+
+#         data = request.json
+#         name = data.get("name")
+#         username = data.get("username")
+#         email = data.get("email")
+#         address = data.get("address")
+#         pin_code = data.get("pin_code")
+#         gender = data.get("gender")
+
+#         existing_username_professional = ServiceProfessional.query.filter(
+#             ServiceProfessional.username == username, ServiceProfessional.id != professional_id
+#         ).first()
+#         existing_username_customer = Customer.query.filter(Customer.username == username).first()
+
+#         existing_email_professional = ServiceProfessional.query.filter(
+#             ServiceProfessional.email == email, ServiceProfessional.id != professional_id
+#         ).first()
+#         existing_email_customer = Customer.query.filter(Customer.email == email).first()
+
+#         if existing_username_professional or existing_username_customer:
+#             return {"message": "Username already exists."}, 400
+#         if existing_email_professional or existing_email_customer:
+#             return {"message": "Email address already exists."}, 400
+
+#         if "profile_pic" in request.files:
+#             file = request.files["profile_pic"]
+#             if file:
+#                 upload_result = cloudinary.uploader.upload(file, folder="professional_profile_pic")
+#                 professional.profile_pic = upload_result.get("secure_url")
+
+#         professional.name = name
+#         professional.username = username
+#         professional.email = email
+#         professional.address = address
+#         professional.pin_code = pin_code
+#         professional.gender = gender
+
+#         db.session.commit()
+#         return {"message": "Profile updated successfully."}, 200
+
+
+# class ProfessionalServicesResource(Resource):
+#     @auth_required("token")
+#     def put(self, professional_id):
+#         professional_services = ProfessionalService.query.filter_by(professional_id=professional_id).all()
+        
+#         if not professional_services:
+#             return {"message": "Professional services not found"}, 404
+
+#         data = request.json
+        
+#         for service in professional_services:
+#             service_data = next((s for s in data if s["service_id"] == service.service_id), None)
+#             if service_data:
+#                 custom_price = service_data.get("custom_price")
+#                 custom_description = service_data.get("custom_description")
+#                 custom_time_required = service_data.get("custom_time_required")
+                
+#                 if custom_price and float(custom_price) < float(service.service.base_price):
+#                     return {"message": "Custom price cannot be less than the base price."}, 400
+                
+#                 service.custom_price = custom_price
+#                 service.custom_description = custom_description
+#                 service.custom_time_required = custom_time_required
+        
+#         db.session.commit()
+#         return {"message": "Services updated successfully."}, 200
+
+# class ServiceProfessionalResource(Resource):
+#     @auth_required('token')
+#     def get(self, professional_id):
+#         professional = ServiceProfessional.query.get(professional_id)
+#         if not professional:
+#             return {"message": "Professional not found"}, 404
+        
+#         # Check if professional is linked to a User
+#         user = professional.user  # Assuming a relationship exists
+#         return {
+#             "id": professional.id,
+#             "name": professional.name,  # Use the correct field
+#             "email": user.email if user else None,  # Fetch from User table if available
+#             "phone": professional.phone,  # Correct field from your model
+#             "experience": professional.experience,
+#             "rating": professional.rating
+#         }, 200
+
+
+# # Register API resources
+# api.add_resource(ProfessionalProfileResource, "/professional/profile/<int:professional_id>")
+# api.add_resource(ProfessionalServicesResource, "/professional/profile/<int:professional_id>/update_services")
+# api.add_resource(ServiceProfessionalResource, "/professional/profile/<int:professional_id>/services")
+
+
+class ProfessionalProfileResource(Resource):
+    @auth_required('token')
+    @marshal_with(service_professional_fields)
+    def get(self, professional_id):
+        professional = ServiceProfessional.query.get_or_404(professional_id)
+        return professional
+
+    @auth_required('token')
+    @marshal_with(service_professional_fields)
+    def put(self, professional_id):
+        professional = ServiceProfessional.query.get_or_404(professional_id)
+
+        # 🛑 Unauthorized access check
+        if professional.user_id != current_user.id:
+            return {"error": "Unauthorized access"}, 403
+        
+        # ✅ Handle JSON and form-data requests properly
+        data = request.get_json() if request.is_json else request.form
+        profile_pic = request.files.get('profile_pic')
+
+        # Debugging: Check available attributes
+        print(f"Received Data: {data}")
+        print(f"Before Update - Professional ID: {professional.id}, User ID: {professional.user_id}")
+        print(f"Available Attributes: {vars(professional)}")  # Debugging
+
+        # If username or email should be updated, update them in the User model
+        if 'username' in data or 'email' in data:
+            user = User.query.get(professional.user_id)  # Fetch related User object
+            if 'username' in data:
+                user.username = data['username']
+            if 'email' in data:
+                user.email = data['email']  # Update User email
+                professional.email = data['email']  # Also update Professional email
+        
+        # Editable fields in ServiceProfessional model
+        editable_fields = ['name', 'phone_no', 'address', 'pin_code', 'gender']
+        for field in editable_fields:
+            if field in data and data[field]:  # Ensure data is not empty
+                setattr(professional, field, data[field])
+
+        # Upload new profile picture if provided
+        if profile_pic:
+            try:
+                upload_result = cloudinary.uploader.upload(profile_pic, folder="professional_profile_pic")
+                professional.profile_picture_url = upload_result['secure_url']
+            except Exception as e:
+                print(f"Image upload failed: {str(e)}")
+                return {"error": "Image upload failed", "details": str(e)}, 500
+
+        try:
+            db.session.commit()
+            print(f"After Update - Professional ID: {professional.id}")
+            return professional
+        except Exception as e:
+            db.session.rollback()
+            print(f"Database commit failed: {str(e)}")
+            return {"error": "Database update failed", "details": str(e)}, 500
+class ProfessionalServicesResource(Resource):
+    @auth_required('token')
+    @marshal_with(professional_service_with_details)
+    def get(self, professional_id):
+        professional = ServiceProfessional.query.get_or_404(professional_id)
+        
+        if professional.user_id != current_user.id:
+            return {"error": "Unauthorized access"}, 403
+
+        return ProfessionalService.query.filter_by(professional_id=professional_id).all()
+
+    @auth_required('token')
+    @marshal_with(professional_service_with_details)
+    def put(self, professional_id):
+        professional = ServiceProfessional.query.get_or_404(professional_id)
+        
+        if professional.user_id != current_user.id:
+            return {"error": "Unauthorized access"}, 403
+        
+        data = request.json
+        for service_data in data:
+            service = ProfessionalService.query.filter_by(
+                professional_id=professional_id,
+                service_id=service_data['service_id']
+            ).first()
+            
+            if service:
+                service.custom_price = service_data.get('custom_price', service.custom_price)
+                service.custom_description = service_data.get('custom_description', service.custom_description)
+                service.custom_time_required = service_data.get('custom_time_required', service.custom_time_required)
+
+        db.session.commit()
+        return ProfessionalService.query.filter_by(professional_id=professional_id).all()
+    
+api.add_resource(ProfessionalProfileResource, '/professional/profile/<int:professional_id>')
+api.add_resource(ProfessionalServicesResource, '/professional/profile/<int:professional_id>/services')
+
+class CustomerProfileResource(Resource):
+    @auth_required('token')
+    @marshal_with(customer_fields)  # Assuming you have a similar marshaller for customer
+    def get(self, customer_id):
+        customer = Customer.query.get_or_404(customer_id)
+        return customer
+
+    @auth_required('token')
+    @marshal_with(customer_fields)
+    def put(self, customer_id):
+        customer = Customer.query.get_or_404(customer_id)
+
+        # 🛑 Unauthorized access check
+        if customer.user_id != current_user.id:
+            return {"error": "Unauthorized access"}, 403
+
+        # ✅ Handle JSON and form-data requests properly
+        data = request.get_json() if request.is_json else request.form
+        profile_pic = request.files.get('profile_pic')
+
+        # Debugging: Check available attributes
+        print(f"Received Data: {data}")
+        print(f"Before Update - Customer ID: {customer.id}, User ID: {customer.user_id}")
+        print(f"Available Attributes: {vars(customer)}")  # Debugging
+
+        # If username or email should be updated, update them in the User model
+        if 'username' in data or 'email' in data:
+            user = User.query.get(customer.user_id)  # Fetch related User object
+            if 'username' in data:
+                user.username = data['username']
+            if 'email' in data:
+                user.email = data['email']  # Update User email
+                customer.email = data['email']  # Also update Customer email
+
+        # Editable fields in Customer model
+        editable_fields = ['name', 'phone_no', 'address', 'pin_code', 'gender']
+        for field in editable_fields:
+            if field in data and data[field]:  # Ensure data is not empty
+                setattr(customer, field, data[field])
+
+        # Upload new profile picture if provided
+        if profile_pic:
+            try:
+                upload_result = cloudinary.uploader.upload(profile_pic, folder="customer_profile_pic")
+                customer.profile_picture_url = upload_result['secure_url']
+            except Exception as e:
+                print(f"Image upload failed: {str(e)}")
+                return {"error": "Image upload failed", "details": str(e)}, 500
+
+        try:
+            db.session.commit()
+            print(f"After Update - Customer ID: {customer.id}")
+            return customer
+        except Exception as e:
+            db.session.rollback()
+            print(f"Database commit failed: {str(e)}")
+            return {"error": "Database update failed", "details": str(e)}, 500
+
+api.add_resource(CustomerProfileResource, '/customer/profile/<int:customer_id>')

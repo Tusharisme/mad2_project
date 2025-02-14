@@ -94,7 +94,10 @@ def create_csv():
 
     output_file = os.path.join(output_dir, "closed_services.csv")
 
-    closed_services = ServiceRequest.query.filter_by(service_status='closed').all()
+    closed_services = ServiceRequest.query.filter(
+        ServiceRequest.service_status == 'completed',
+        ServiceRequest.remarks.isnot(None)  # Ensures customer_remark is not null
+    ).all()
 
     with open(output_file, mode='w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)

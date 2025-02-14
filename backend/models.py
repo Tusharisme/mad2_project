@@ -66,7 +66,6 @@ class ServiceProfessional(db.Model):
     pin_code = db.Column(db.String(20), nullable=False)
     verified_status = db.Column(db.String(50), nullable=False, default="Not verified yet")
     gender = db.Column(db.String(10), nullable=True)
-    profile_pic = db.Column(db.String(255), nullable=True)
     average_rating = db.Column(db.Float, nullable=True)
     document_url = db.Column(db.String(255), nullable=True)
     profile_picture_url = db.Column(db.String(500), nullable=True)  # Profile picture URL

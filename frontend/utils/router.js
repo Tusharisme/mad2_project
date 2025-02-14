@@ -17,6 +17,8 @@ import SearchPageforAdmin from "../pages/SearchPageforAdmin.js";
 import ServiceHistoryCustomer from "../pages/ServiceHistoryCustomer.js";
 import LogisticPageCustomer from "../pages/LogisticPageCustomer.js";
 import LogisticPageProfessional from "../pages/LogisticPageProfessional.js";
+import ProfessionalProfile from "../pages/ProfessionalProfile.js";
+import CustomerProfile from "../pages/CustomerProfile.js";
 
 const routes = [
   { path: "/", component: LandingPage },
@@ -95,7 +97,17 @@ const routes = [
     path: "/logistic_page_professional",
     component: LogisticPageProfessional,
     meta: { requiresLogin: true, role: "professional" },
-  }
+  },
+  {
+    path: "/professional_profile",
+    component: ProfessionalProfile,
+    meta: { requiresLogin: true, role: "professional" },
+  },
+  {
+    path: "/customer_profile",
+    component: CustomerProfile,
+    meta: { requiresLogin: true, role: "customer" },
+  },
 ];
 
 const router = new VueRouter({
