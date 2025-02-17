@@ -14,33 +14,6 @@ from celery.result import AsyncResult
 def home():
     return render_template('index.html')
 
-@app.get("/celery")
-def celery():
-    task = add.delay(1, 2)
-    return jsonify({"task_id": task.id})
-
-@app.get("/celery/<task_id>")
-def celery_result(task_id):
-    task = add.AsyncResult(task_id)
-    return jsonify({"task_status": task.status, "task_result": task.result})
-
-@app.get("/create_csv")
-def get_create_csv():
-    task = create_csv.delay()
-    return jsonify({"task_id": task.id}), 200
-
-@app.get("/get_csv/<task_id>")
-def get_csv(task_id):
-    task = AsyncResult(task_id)
-    if task.status == "SUCCESS":
-        return send_file(task.result, as_attachment=True)
-    return jsonify({"task_status": task.status}), 200
-
-@app.get("/cache")
-@cache.cached(timeout=5)
-def cache():
-    return {"date": str(datetime.now())}
-
 
 @app.route("/login", methods=['POST'])
 def login():

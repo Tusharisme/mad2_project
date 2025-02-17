@@ -1,27 +1,32 @@
 export default {
   template: `
-    <div>
-      <div id="container">
-        <div id="panel">
-          <h2 style="text-decoration: underline;">Logistics Page</h2>
-          <br>
-          <div class="charts-wrapper">
-            <div class="chart-container">
-              <canvas id="statusChart"></canvas>
-              <p class="chart-title">Service Completion Status</p>
-            </div>
-            <div class="chart-container">
-              <canvas id="categoryChart"></canvas>
-              <p class="chart-title">Service Categories</p>
-            </div>
-            <div class="chart-container">
-              <canvas id="requestsChart"></canvas>
-              <p class="chart-title">Service Requests Over Time</p>
-            </div>
-          </div>
+  <div>
+  <div id="container">
+    <div id="panel">
+      <h2 style="text-decoration: underline;">Logistics Page</h2>
+      <br>
+      <div class="charts-wrapper">
+        <div class="chart-container">
+          <canvas id="statusChart"></canvas>
+          <p class="chart-title">Service Completion Status</p>
+        </div>
+        <div class="chart-container">
+          <canvas id="categoryChart"></canvas>
+          <p class="chart-title">Service Categories</p>
+        </div>
+        <div class="chart-container">
+          <canvas id="requestsChart"></canvas>
+          <p class="chart-title">Service Requests Over Time</p>
         </div>
       </div>
+      <br>
+      <div class="export-buttons">
+        <button @click="exportFile('csv')">Export CSV (ZIP)</button>
+        <button @click="exportFile('xlsx')">Export Excel</button>
+      </div>
     </div>
+  </div>
+</div>
   `,
 
   mounted() {
@@ -151,5 +156,43 @@ export default {
         });
       })
       .catch((error) => console.error("Error fetching data:", error)); // ✅ Catch applied to the fetch chain
+  },
+
+  methods: {
+    async exportFile(type) {
+      try {
+        const user = JSON.parse(localStorage.getItem("user"));
+        const userId = user ? user.customer_id : null;
+        if (!userId) {
+          console.error("User ID is not available");
+          return;
+        }
+
+        const response = await fetch(
+          `/api/customer/generate_report?file_type=${type}&customer_id=${userId}`,
+          {
+            headers: {
+              "Authentication-Token": this.$store.state.auth_token,
+            },
+          }
+        );
+
+        if (!response.ok) throw new Error("Failed to generate report");
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download =
+          type === "csv" ? "Customer_Report.zip" : "Customer_Report.xlsx";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error("Error generating report:", error);
+        alert("Failed to generate report");
+      }
+    },
   },
 };

@@ -2,7 +2,10 @@ export default {
   template: `
   <div id="admin-dashboard" class="container">
     <h2 class="text-center" style="text-decoration: underline;">Admin Dashboard</h2>
-
+    <div class="text-center mb-3">
+    <button class="btn btn-primary" @click="exportFile('csv')">Export as CSV (ZIP)</button>
+    <button class="btn btn-success" @click="exportFile('xlsx')">Export as Excel</button>
+  </div>
     <!-- Tabs for different insights -->
     <ul class="nav nav-tabs mb-4">
       <li class="nav-item" v-for="tab in tabs" :key="tab.value">
@@ -42,6 +45,33 @@ export default {
   },
 
   methods: {
+    async exportFile(type) {
+      try {
+        const response = await fetch(
+          `/api/admin/generate_report?file_type=${type}`,
+          {
+            headers: {
+              "Authentication-Token": this.$store.state.auth_token,
+            },
+          }
+        );
+        if (!response.ok) throw new Error("Failed to generate report");
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download =
+          type === "csv" ? "Admin_Reports.zip" : "Admin_Reports.xlsx";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error("Error generating report:", error);
+        alert("Failed to generate report");
+      }
+    },
     changeTab(newTab) {
       if (this.activeTab === newTab) return;
 

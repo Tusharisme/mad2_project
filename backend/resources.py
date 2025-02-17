@@ -4,7 +4,7 @@ from flask_login import current_user
 from flask_restful import Resource, Api, fields, marshal, marshal_with
 from sqlalchemy import func
 from backend.models import ProfessionalService, ProfessionalWallet, ServiceRequest, db, Customer, ServiceProfessional, User, Role, UserRoles, Service
-from flask import abort, current_app as app, request, jsonify, session
+from flask import Response, abort, current_app as app, request, jsonify, session
 from flask_security import auth_required, hash_password
 from sqlalchemy.orm import joinedload
 
@@ -1730,3 +1730,119 @@ class CancelServiceResource(Resource):
             return {'message': str(e)}, 500
         
 api.add_resource(CancelServiceResource, '/cancel_service/<int:service_request_id>')
+
+
+from backend.celery.tasks import create_csv_zip, create_excel
+class GenerateCSVResource(Resource):
+    @auth_required('token')
+    def get(self):
+        """
+        API endpoint to generate and download the CSV file for the admin.
+        """
+        file_type = request.args.get('file_type', 'csv')
+
+        try:
+            if file_type == 'csv':
+                result = create_csv_zip.apply_async()
+                zip_content = result.get()
+                content_type = "application/zip"
+                filename = "Admin_Reports.zip"
+            elif file_type == 'xlsx':
+                result = create_excel.apply_async()
+                xlsx_content = result.get()
+                content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                filename = "Admin_Reports.xlsx"
+            else:
+                return {'message': 'Invalid file type'}, 400
+
+            return Response(
+                zip_content if file_type == 'csv' else xlsx_content,
+                mimetype=content_type,
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
+
+        except Exception as e:
+            return {'message': f'Error generating report: {str(e)}'}, 500
+
+api.add_resource(GenerateCSVResource, '/admin/generate_report')
+
+
+from backend.celery.tasks import create_customer_csv_zip, create_customer_excel
+from flask import Response, request
+from flask_restful import Resource
+from flask_security import auth_required, current_user
+from backend.celery.tasks import create_customer_csv_zip, create_customer_excel,create_professional_csv_zip, create_professional_excel
+
+class GenerateCustomerReportResource(Resource):
+    @auth_required('token')
+    def get(self):
+        """
+        API endpoint to generate and download the CSV or Excel report for the customer.
+        """
+        file_type = request.args.get('file_type', 'csv')
+        customer_id = request.args.get('customer_id')  # 🔹 Get `customer_id` from query params
+        if not customer_id:
+            return {'message': 'Customer ID is required'}, 400  # Handle missing customer ID
+        
+        try:
+            if file_type == 'csv':
+                result = create_customer_csv_zip.apply_async(args=[customer_id])
+                zip_content = result.get()
+                content_type = "application/zip"
+                filename = "Customer_Report.zip"
+            elif file_type == 'xlsx':
+                result = create_customer_excel.apply_async(args=[customer_id])
+                xlsx_content = result.get()
+                content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                filename = "Customer_Report.xlsx"
+            else:
+                return {'message': 'Invalid file type'}, 400
+
+            return Response(
+                zip_content if file_type == 'csv' else xlsx_content,
+                mimetype=content_type,
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
+
+        except Exception as e:
+            return {'message': f'Error generating report: {str(e)}'}, 500
+
+# Add to API routes
+api.add_resource(GenerateCustomerReportResource, '/customer/generate_report')
+
+class GenerateProfessionalReportResource(Resource):
+    @auth_required('token')
+    def get(self):
+        """
+        API endpoint to generate and download the CSV or Excel report for the professional.
+        """
+        file_type = request.args.get('file_type', 'csv')
+        professional_id = request.args.get('professional_id')  # Get `professional_id` from query params
+        if not professional_id:
+            return {'message': 'Professional ID is required'}, 400  # Handle missing professional ID
+
+        try:
+            if file_type == 'csv':
+                result = create_professional_csv_zip.apply_async(args=[professional_id])
+                zip_content = result.get()
+                content_type = "application/zip"
+                filename = "Professional_Report.zip"
+            elif file_type == 'xlsx':
+                result = create_professional_excel.apply_async(args=[professional_id])
+                xlsx_content = result.get()
+                content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                filename = "Professional_Report.xlsx"
+            else:
+                return {'message': 'Invalid file type'}, 400
+
+            return Response(
+                zip_content if file_type == 'csv' else xlsx_content,
+                mimetype=content_type,
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
+
+        except Exception as e:
+            return {'message': f'Error generating report: {str(e)}'}, 500
+
+# Add to API routes
+api.add_resource(GenerateProfessionalReportResource, '/professional/generate_report')
