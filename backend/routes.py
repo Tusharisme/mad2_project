@@ -139,6 +139,7 @@ def register_professional():
         experience = request.form.get('experience')
         role = request.form.get('role')
         document = request.files.get('document')  # Professional document
+        profile_picture_url = request.form.get('profile_picture_url')  # Handle profile picture
 
         # Validate input fields
         if not email or not password or role != 'professional':
@@ -153,12 +154,13 @@ def register_professional():
         if user:
             return jsonify({'message': 'User already exists'}), 400
         
-        # Assign profile picture based on gender
-        if gender == "Male":
-            profile_pic = "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1739114421/default_pic/ido90awmqkwdtveme9h3.png"
-        elif gender == "Female":
-            profile_pic = "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1739114431/default_pic/h0kiyvh0a679w4xivqie.jpg"
-       
+        # Assign default profile picture based on gender if none is provided
+        if not profile_picture_url:
+            if gender == "Male":
+                profile_picture_url = "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1739114421/default_pic/ido90awmqkwdtveme9h3.png"
+            elif gender == "Female":
+                profile_picture_url = "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1739114431/default_pic/h0kiyvh0a679w4xivqie.jpg"
+
         # Upload the document to Cloudinary
         try:
             document_result = cloudinary.uploader.upload(
@@ -181,7 +183,7 @@ def register_professional():
         )
         db.session.add(new_user)
         db.session.commit()
-
+        
         # Fetch the Service object for the provided service_type
         service = Service.query.filter_by(name=service_type).first()
         if not service:
@@ -199,8 +201,9 @@ def register_professional():
             service_type=service_type,
             experience=experience,
             document_url=document_url,
-            profile_picture=profile_pic  # Storing profile picture URL in DB
+            profile_picture_url=profile_picture_url  # Use correct column name here
         )
+        
         db.session.add(professional)
         db.session.commit()
 
@@ -211,12 +214,12 @@ def register_professional():
             custom_price=None,
             custom_description=None,
         )
+        
         db.session.add(professional_service)
         db.session.commit()
-
+        
         return jsonify({'message': 'Professional successfully registered'}), 201
 
     except Exception as e:
         db.session.rollback()
         return jsonify({'message': str(e)}), 500
-

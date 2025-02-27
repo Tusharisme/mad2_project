@@ -155,6 +155,17 @@ export default {
         formData.append("document", this.form.document);
         formData.append("role", this.form.role);
 
+        // Add profile picture URL (if any)
+        const defaultProfilePicture =
+          this.form.gender === "Male"
+            ? "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1739114421/default_pic/ido90awmqkwdtveme9h3.png"
+            : "https://res.cloudinary.com/dfcpm3kmc/image/upload/v1739114431/default_pic/h0kiyvh0a679w4xivqie.jpg";
+
+        const profilePictureUrl =
+          this.form.profilePictureUrl || defaultProfilePicture;
+
+        formData.append("profile_picture_url", profilePictureUrl);
+
         const res = await fetch(`${location.origin}/register_professional`, {
           method: "POST",
           body: formData,

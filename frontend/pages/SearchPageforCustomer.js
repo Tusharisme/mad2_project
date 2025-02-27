@@ -6,7 +6,6 @@ export default {
         <div class="row justify-content-center">
           <div class="col-md-8">
             <form class="d-flex flex-wrap gap-2" @submit.prevent="handleSearch">
-              <!-- Entity Selection -->
               <select class="form-select" v-model="searchParams.entity" @change="handleEntityChange">
                 <option value="" disabled>Select Entity</option>
                 <option value="service">Service</option>
@@ -14,7 +13,6 @@ export default {
                 <option value="rating">Rating</option>
               </select>
   
-              <!-- Pincode Dropdown -->
               <select 
                 v-if="searchParams.entity === 'pincode'" 
                 class="form-select" 
@@ -26,7 +24,6 @@ export default {
                 </option>
               </select>
   
-              <!-- Rating Inputs -->
               <div v-if="searchParams.entity === 'rating'" class="input-group">
                 <input 
                   type="number" 
@@ -43,7 +40,6 @@ export default {
                 </select>
               </div>
   
-              <!-- Service Search Input -->
               <input 
                 v-if="searchParams.entity === 'service'" 
                 type="text" 
@@ -57,28 +53,60 @@ export default {
           </div>
         </div>
   
-        <!-- Results Section -->
-        <div class="row mt-4">
-          <div v-for="result in searchResults" :key="result.id" class="col-md-4 mb-4">
-            <div class="card">
-              <div class="card-body">
-                <h5 class="card-title">{{ result.name }}</h5>
-                <p class="card-text">{{ result.description }}</p>
-                <p class="card-text">
-                  <small class="text-muted">
-                    Rating: {{ result.average_rating || 'N/A' }}
-                  </small>
-                </p>
-                <button 
-                  class="btn btn-primary"
-                  @click="viewProfessionals(result.id)"
-                >
-                  View Professionals
-                </button>
-              </div>
-            </div>
-          </div>
+        <div class="container mt-4">
+  <!-- Heading -->
+  <h3 v-if="searchParams.entity === 'service'" class="text-center mb-4" style="text-decoration: underline;">
+    Explore Our Services
+  </h3>
+
+  <div class="row">
+    <div v-for="result in searchResults" :key="result.id" class="col-md-4 mb-4">
+      <!-- Service Card -->
+      <div v-if="searchParams.entity === 'service'" class="card h-100 shadow-sm">
+        <div class="card-body text-center">
+          <img 
+            :src="result.image" 
+            :alt="result.name" 
+            class="card-img-top mb-3" 
+            style="max-height: 150px; object-fit: cover;" 
+          />
+          <h5 class="card-title">{{ result.name }}</h5>
+          <p class="card-text">{{ result.description || 'No description available' }}</p>
+          <p class="text-muted">Starting at ₹{{ result.base_price }}</p>
+          <button 
+            class="btn btn-primary btn-sm mt-3" 
+            @click="viewProfessionals(result.id)"
+          >
+            Explore Services
+          </button>
         </div>
+      </div>
+
+      <!-- Default Card (For Professionals, Customers, etc.) -->
+      <div v-else class="card">
+        <div class="card-body">
+          <h5 class="card-title">{{ result.name }}</h5>
+          <p class="card-text">{{ result.description || 'No description available' }}</p>
+          
+          <!-- Hide rating for services -->
+          <p v-if="searchParams.entity !== 'service'" class="card-text">
+            <small class="text-muted">
+              Rating: {{ result.average_rating || 'N/A' }}
+            </small>
+          </p>
+
+          <button 
+            class="btn btn-primary"
+            @click="viewProfessionals(result.id)"
+          >
+            View Professionals
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
       </div>
     `,
   data() {
@@ -113,7 +141,6 @@ export default {
       }
     },
     handleEntityChange() {
-      // Reset other search parameters when entity changes
       this.searchParams.query = "";
       this.searchParams.pincode = "";
       this.searchParams.ratingValue = "";
@@ -147,6 +174,7 @@ export default {
       }
     },
     viewProfessionals(serviceId) {
+      // Redirect to the Service Professionals page for the selected service
       this.$router.push(`/service-professionals/${serviceId}`);
     },
   },

@@ -4,7 +4,7 @@ export default {
           <form @submit.prevent="updateProfile">
               <div class="mb-3 text-center">
                   <label for="profile_pic" class="d-block">
-                      <img :src="customer.profile_picture_url"
+                      <img :src="customer.profile_pic"
                           alt="Profile Picture"
                           width="150" height="150"
                           class="rounded-circle"

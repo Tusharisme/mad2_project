@@ -21,8 +21,8 @@ export default {
       </div>
       <br>
       <div class="export-buttons">
-        <button @click="exportFile('csv')">Export CSV (ZIP)</button>
-        <button @click="exportFile('xlsx')">Export Excel</button>
+      <button class="btn btn-primary" @click="exportFile('csv')">Export CSV (ZIP)</button>
+      <button class="btn btn-success" @click="exportFile('xlsx')">Export Excel</button>
       </div>
     </div>
   </div>

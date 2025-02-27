@@ -68,12 +68,19 @@ class ServiceProfessional(db.Model):
     gender = db.Column(db.String(10), nullable=True)
     average_rating = db.Column(db.Float, nullable=True)
     document_url = db.Column(db.String(255), nullable=True)
-    profile_picture_url = db.Column(db.String(500), nullable=True)  # Profile picture URL
+    profile_picture_url = db.Column(db.String(500), nullable=True)
     block_status = db.Column(db.Boolean, default=False)
 
     # Relationship back to User
     user = db.relationship("User", back_populates="service_professional")
-    custom_services = db.relationship("ProfessionalService", back_populates="professional")
+
+    # Cascade delete ProfessionalService when ServiceProfessional is deleted
+    custom_services = db.relationship(
+        "ProfessionalService",
+        back_populates="professional",
+        cascade="all, delete-orphan"
+    )
+
 
 # Service Model
 class Service(db.Model):
@@ -91,7 +98,7 @@ class Service(db.Model):
 class ProfessionalService(db.Model):
     __tablename__ = "professional_service"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    professional_id = db.Column(db.Integer, db.ForeignKey("service_professional.id"), nullable=False)
+    professional_id = db.Column(db.Integer, db.ForeignKey("service_professional.id", ondelete="CASCADE"), nullable=False)
     service_id = db.Column(db.Integer, db.ForeignKey("service.id"), nullable=False)
     custom_price = db.Column(db.Integer, nullable=True)
     custom_description = db.Column(db.String, nullable=True)
@@ -99,6 +106,7 @@ class ProfessionalService(db.Model):
 
     professional = db.relationship("ServiceProfessional", back_populates="custom_services")
     service = db.relationship("Service", back_populates="professional_services")
+
 
 # Payment Model
 class Payment(db.Model):
@@ -136,7 +144,7 @@ class ServiceRequest(db.Model):
     __tablename__ = "service_request"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     service_id = db.Column(db.Integer, db.ForeignKey("service.id"), nullable=False)
-    customer_id = db.Column(db.Integer, db.ForeignKey("customer.id"), nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey("customer.id", ondelete="CASCADE"), nullable=False)
     professional_id = db.Column(db.Integer, db.ForeignKey("service_professional.id"), nullable=False)
 
     date_of_request = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

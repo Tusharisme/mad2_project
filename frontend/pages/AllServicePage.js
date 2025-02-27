@@ -1,141 +1,113 @@
 export default {
   template: `
-    <div id="admin-services-page">
-      <div class="container">
-        <h2 class="text-center mb-4">Services Management</h2>
-        
-        <!-- Add New Service Button -->
-        <button
-          type="button"
-          class="btn btn-custom mb-3"
-          data-bs-toggle="modal"
-          data-bs-target="#addServiceModal"
-        >
-          Add New Service
-        </button>
+  <div id="admin-services-page">
+  <div class="container">
+      <h2 class="text-center mb-4">Services Management</h2>
 
-        <!-- Services Table -->
-        <table v-if="services.length > 0" class="table table-bordered table-hover table-custom">
+      <!-- Add New Service Button -->
+      <button type="button" class="btn btn-custom mb-3" data-bs-toggle="modal" data-bs-target="#addServiceModal">
+          Add New Service
+      </button>
+
+      <!-- Services Table -->
+      <table v-if="services.length > 0" class="table table-bordered table-hover table-custom">
           <thead class="table-dark-custom">
-            <tr>
-              <th scope="col">ID</th>
-              <th scope="col">Service Name</th>
-              <th scope="col">Base Price</th>
-              <th scope="col">No. of Professionals</th>
-              <th scope="col">Action</th>
-            </tr>
+              <tr>
+                  <th scope="col">ID</th>
+                  <th scope="col">Service Name</th>
+                  <th scope="col">Base Price</th>
+                  <th scope="col">No. of Professionals</th>
+                  <th scope="col">Action</th>
+              </tr>
           </thead>
           <tbody>
-            <tr v-for="service in services" :key="service.id">
-              <td>{{ service.id }}</td>
-              <td>{{ service.name }}</td>
-              <td>{{ service.base_price }}</td>
-              <td>{{ service.professional_count }}</td>
-              <td>
-                <button
-                  type="button"
-                  class="btn btn-success-custom"
-                  data-bs-toggle="modal"
-                  data-bs-target="#editServiceModal"
-                  @click="populateEditModal(service)"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-danger-custom ms-2"
-                  @click="deleteService(service.id)"
-                >
-                  Delete
-                </button>
-              </td>
-            </tr>
+              <tr v-for="service in services" :key="service.id">
+                  <td>{{ service.id }}</td>
+                  <td>{{ service.name }}</td>
+                  <td>{{ service.base_price }}</td>
+                  <td>{{ service.professional_count }}</td>
+                  <td>
+                      <button type="button" class="btn btn-success-custom" data-bs-toggle="modal"
+                          data-bs-target="#editServiceModal" @click="populateEditModal(service)">
+                          Edit
+                      </button>
+                      <button type="button" class="btn btn-danger-custom ms-2" @click="deleteService(service.id)">
+                          Delete
+                      </button>
+                  </td>
+              </tr>
           </tbody>
-        </table>
+      </table>
 
-        <p v-else class="mt-3">No services available.</p>
+      <p v-else class="mt-3">No services available.</p>
 
-        <!-- Add Service Modal -->
-        <div
-          class="modal fade"
-          id="addServiceModal"
-          tabindex="-1"
-          aria-labelledby="addServiceLabel"
-          aria-hidden="true"
-        >
+      <!-- Add Service Modal -->
+      <div class="modal fade" id="addServiceModal" tabindex="-1" aria-labelledby="addServiceLabel" aria-hidden="true">
           <div class="modal-dialog">
-            <div class="modal-content custom-modal">
-              <form @submit.prevent="addService">
-                <div class="modal-header">
-                  <h5 class="modal-title" id="addServiceLabel">Add Service</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                  <input v-model="newService.name" type="text" class="form-control mb-3" placeholder="Service Name" required />
-                  <input v-model="newService.description" type="text" class="form-control mb-3" placeholder="Description" required />
-                  <input v-model="newService.base_price" type="number" class="form-control mb-3" placeholder="Base Price" required />
-                  <input v-model="newService.base_time_required" type="number" class="form-control mb-3" placeholder="Base Time (hours)" required />
-                  <input
-                    type="file"
-                    class="form-control mb-3"
-                    accept="image/*"
-                    @change="handleFileUpload"
-                  />
-                </div>
-                <div class="modal-footer">
-                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                  <button type="submit" class="btn btn-custom">Add Service</button>
-                </div>
-              </form>
-            </div>
+              <div class="modal-content custom-modal">
+                  <form @submit.prevent="addService">
+                      <div class="modal-header">
+                          <h5 class="modal-title" id="addServiceLabel">Add Service</h5>
+                          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                      </div>
+                      <div class="modal-body">
+                          <input v-model="newService.name" type="text" class="form-control mb-3"
+                              placeholder="Service Name" required />
+                          <input v-model="newService.description" type="text" class="form-control mb-3"
+                              placeholder="Description" required />
+                          <input v-model="newService.base_price" type="number" class="form-control mb-3"
+                              placeholder="Base Price" required />
+                          <input v-model="newService.base_time_required" type="number" class="form-control mb-3"
+                              placeholder="Base Time (hours)" required />
+                          <input type="file" class="form-control mb-3" accept="image/*" @change="handleFileUpload" />
+                      </div>
+                      <div class="modal-footer">
+                          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                          <button type="submit" class="btn btn-custom">Add Service</button>
+                      </div>
+                  </form>
+              </div>
           </div>
-        </div>
+      </div>
 
-        <!-- Edit Service Modal -->
-<div
-class="modal fade"
-id="editServiceModal"
-tabindex="-1"
-aria-labelledby="editServiceLabel"
-aria-hidden="true"
->
-<div class="modal-dialog">
-  <div class="modal-content custom-modal">
-    <form @submit.prevent="editService">
-      <div class="modal-header">
-        <h5 class="modal-title" id="editServiceLabel">Edit Service</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      <!-- Edit Service Modal -->
+      <div class="modal fade" id="editServiceModal" tabindex="-1" aria-labelledby="editServiceLabel"
+          aria-hidden="true">
+          <div class="modal-dialog">
+              <div class="modal-content custom-modal">
+                  <form @submit.prevent="editService">
+                      <div class="modal-header">
+                          <h5 class="modal-title" id="editServiceLabel">Edit Service</h5>
+                          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                      </div>
+                      <div class="modal-body">
+                          <input v-model="currentService.name" type="text" class="form-control mb-3" required />
+                          <input v-model="currentService.description" type="text" class="form-control mb-3"
+                              required />
+                          <input v-model="currentService.base_price" type="number" class="form-control mb-3"
+                              required />
+                          <input v-model="currentService.base_time_required"  class="form-control mb-3"
+                              required />
+
+                          <!-- File Input for Image -->
+                          <input type="file" class="form-control mb-3" accept="image/*" @change="handleFileChange" />
+
+                          <div v-if="currentService.picture_url" class="mt-2">
+                              <p>Current Picture:</p>
+                              <img :src="currentService.picture_url" alt="Service Picture" width="150" height="150" />
+                          </div>
+                      </div>
+                      <div class="modal-footer">
+                          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                          <button type="submit" class="btn btn-custom">Save Changes</button>
+                      </div>
+                  </form>
+              </div>
+          </div>
       </div>
-      <div class="modal-body">
-        <input v-model="currentService.name" type="text" class="form-control mb-3" required />
-        <input v-model="currentService.description" type="text" class="form-control mb-3" required />
-        <input v-model="currentService.base_price" type="number" class="form-control mb-3" required />
-        <input v-model="currentService.base_time_required" type="number" class="form-control mb-3" required />
-        
-        <!-- File Input for Image -->
-        <input 
-          type="file" 
-          class="form-control mb-3" 
-          accept="image/*"
-          @change="handleFileChange"  
-        />
-        
-        <div v-if="currentService.picture_url" class="mt-2">
-          <p>Current Picture:</p>
-          <img :src="currentService.picture_url" alt="Service Picture" width="150" height="150" />
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        <button type="submit" class="btn btn-custom">Save Changes</button>
-      </div>
-    </form>
   </div>
 </div>
-</div>
-      </div>
-      </div>
-    </div>
+
   `,
   data() {
     return {
@@ -270,7 +242,7 @@ aria-hidden="true"
         if (response.ok) {
           console.log("Service edited successfully");
           this.fetchServices(); // Refresh the services list
-          $("#editServiceModal").modal("hide"); // Close the modal
+          // $("#editServiceModal").modal("hide"); // Close the modal
         } else {
           console.error("Failed to edit service");
         }

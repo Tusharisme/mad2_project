@@ -3,13 +3,21 @@ import cloudinary
 from flask_login import current_user
 from flask_restful import Resource, Api, fields, marshal, marshal_with
 from sqlalchemy import func
-from backend.models import ProfessionalService, ProfessionalWallet, ServiceRequest, db, Customer, ServiceProfessional, User, Role, UserRoles, Service
+from backend.models import *
 from flask import Response, abort, current_app as app, request, jsonify, session
 from flask_security import auth_required, hash_password
 from sqlalchemy.orm import joinedload
+from backend.utils import calculate_average_rating_for_customer, calculate_average_rating_for_professional
+
 
 api = Api(prefix='/api')
 cache=app.cache
+
+from datetime import datetime
+
+def format_datetime(value):
+    return value.strftime('%Y-%m-%d %H:%M:%S') if isinstance(value, datetime) else "N/A"
+
 # Define the fields for marshalling the Customer data
 customer_fields = {
     'id': fields.Integer,
@@ -47,7 +55,7 @@ service_professional_fields = {
     'gender': fields.String,
     'profile_picture_url': fields.String,
     'average_rating': fields.Float,
-    'document': fields.String,
+    'document_url': fields.String,
     'block_status': fields.Boolean,
     'custom_services': fields.List(fields.Nested(professional_service_fields)),
 }
@@ -71,8 +79,10 @@ service_request_fields = {
     'customer_id': fields.Integer,
     'professional_id': fields.Integer,
     'service_status': fields.String,
-    'date_of_request': fields.DateTime,
-    'date_of_completion': fields.DateTime,
+    'date_of_request': fields.String,
+    'date_of_completion': fields.String,
+    # 'date_of_request': fields.FormattedString(lambda sr: format_datetime(sr.date_of_request)),
+    # 'date_of_completion': fields.FormattedString(lambda sr: format_datetime(sr.date_of_completion)),
     'remarks': fields.String,
     'rating': fields.Integer,
     'customer_rating': fields.Integer,
@@ -81,6 +91,8 @@ service_request_fields = {
     'requested_time': fields.String,
     'customer': fields.Nested(customer_fields),  # Add nested customer details
     'service': fields.Nested(service_fields),    # Add nested service details
+    'professional': fields.Nested(service_professional_fields),  # ✅ Add professional details
+
 }
 
 # Extend professional_service_fields to include service details
@@ -187,6 +199,9 @@ class AllServiceProfessionalsResource(Resource):
     def get(self):
         try:
             professionals = ServiceProfessional.query.all()
+# Debugging: Check if document_url exists for each professional
+            for professional in professionals:
+                print(f"Professional ID: {professional.id}, Document URL: {professional.document_url}")
             return professionals
         except Exception as e:
             return {'message': str(e)}, 500
@@ -338,7 +353,7 @@ class ServiceResource(Resource):
             try:
                 # Convert base_price and base_time_required to correct types
                 base_price = float(base_price)
-                base_time_required = int(base_time_required)
+                base_time_required = (base_time_required)
             except ValueError:
                 return {'message': 'Invalid data types for base_price or base_time_required'}, 400
 
@@ -868,34 +883,31 @@ class SearchResource(Resource):
     def get(self):
         try:
             entity = request.args.get('entity')
-            query = request.args.get('query', '')
+            query = request.args.get('query', '').strip()
             pincode = request.args.get('pincode')
-            rating = request.args.get('rating')
+            rating = request.args.get('rating', '').strip()
             condition = request.args.get('condition')
 
-            # Base query starting with professionals
+            if not entity:
+                return {'message': 'Entity parameter is required'}, 400
+
+            # Base query for professionals
             base_query = (
                 ServiceProfessional.query
-                .join(ProfessionalService)
-                .join(Service)
                 .filter(ServiceProfessional.verified_status == "approved")
                 .filter(ServiceProfessional.block_status == False)
             )
 
             if entity == 'service':
-                # Search by service name
-                results = (
-                    Service.query
-                    .filter(Service.name.ilike(f'%{query}%'))
-                    .all()
-                )
+                results = Service.query.filter(Service.name.ilike(f'%{query}%')).all()
                 return marshal(results, service_fields)
 
             elif entity == 'pincode':
-                # Search by pincode
+                if not pincode:
+                    return {'message': 'Pincode is required'}, 400
+
                 results = (
-                    base_query
-                    .filter(ServiceProfessional.pin_code == pincode)
+                    base_query.filter(ServiceProfessional.pin_code == pincode)
                     .with_entities(Service)
                     .distinct()
                     .all()
@@ -903,25 +915,32 @@ class SearchResource(Resource):
                 return marshal(results, service_fields)
 
             elif entity == 'rating':
-                # Search by rating
-                rating = float(rating)
+                # ✅ If rating is empty, return all professionals
+                if not rating:
+                    results = base_query.all()
+                    return marshal(results, service_professional_fields)
+
+                # Convert rating to float if provided
+                try:
+                    rating = float(rating)
+                except ValueError:
+                    return {'message': 'Invalid rating value. Must be a number.'}, 400
+
+                # Apply rating condition filter
                 if condition == 'high':
-                    results = (
-                        base_query
-                        .filter(ServiceProfessional.average_rating >= rating)
-                        .with_entities(Service)
-                        .distinct()
-                        .all()
-                    )
+                    results = base_query.filter(ServiceProfessional.average_rating >= rating).all()
+                elif condition == 'low':
+                    results = base_query.filter(ServiceProfessional.average_rating <= rating).all()
                 else:
-                    results = (
-                        base_query
-                        .filter(ServiceProfessional.average_rating <= rating)
-                        .with_entities(Service)
-                        .distinct()
-                        .all()
-                    )
-                return marshal(results, service_fields)
+                    return {'message': 'Invalid condition. Use "high" or "low".'}, 400
+
+                # ✅ Ensure professionals with missing average ratings are calculated
+                for professional in results:
+                    if professional.average_rating is None:
+                        avg_rating = calculate_average_rating_for_professional(professional.id)
+                        professional.average_rating = avg_rating if avg_rating is not None else 0.0
+
+                return marshal(results, service_professional_fields)
 
             return {'message': 'Invalid search parameters'}, 400
 
@@ -945,194 +964,305 @@ class PincodesResource(Resource):
         except Exception as e:
             return {'message': str(e)}, 500
 
-
-# Add these resources to your API
+# Register resources with API
 api.add_resource(SearchResource, '/search')
 api.add_resource(PincodesResource, '/pincodes')
 
+
 class SearchAdminResource(Resource):
+    @auth_required('token')
     def get(self):
         try:
-            # Get query parameters
             entity = request.args.get("entity")
             criteria = request.args.get("criteria")
             query = request.args.get("query")
-            rating_filter = request.args.get("rating")  # For rating filter
+            rating_filter = request.args.get("rating")
             rating_condition = request.args.get("rating_condition")
 
-            results = []
-
-            if not entity or not criteria:  # Validate essential params
+            if not entity or not criteria:
                 return {"message": "Entity and criteria are required."}, 400
 
-            # Searching for Services
-            if entity == "service":
-                if not query:
-                    results = Service.query.all()
-                else:
-                    if criteria == "name":
-                        results = Service.query.filter(Service.name.ilike(f"%{query}%")).all()
-                    elif criteria == "base_price":
-                        results = Service.query.filter(Service.base_price == query).all()
-                    elif criteria == "description":
-                        results = Service.query.filter(Service.description.ilike(f"%{query}%")).all()
+            # Map entities to their respective search methods and field definitions
+            search_mapping = {
+                "service": (self.search_services, service_fields),
+                "professional": (self.search_professionals, service_professional_fields),
+                "service_request": (self.search_service_requests, service_request_fields),
+                "customer": (self.search_customers, customer_fields),
+            }
 
-            # Searching for Professionals
-            elif entity == "professional":
-                if not query and rating_filter:
-                    if rating_condition == "high":
-                        results = ServiceProfessional.query.filter(
-                            ServiceProfessional.average_rating >= float(rating_filter)
-                        ).all()
-                    elif rating_condition == "low":
-                        results = ServiceProfessional.query.filter(
-                            ServiceProfessional.average_rating <= float(rating_filter)
-                        ).all()
-                    else:
-                        results = ServiceProfessional.query.all()
-                else:
-                    if criteria == "name":
-                        results = ServiceProfessional.query.filter(
-                            ServiceProfessional.name.ilike(f"%{query}%")
-                        ).all()
-                    elif criteria == "experience":
-                        results = ServiceProfessional.query.filter(
-                            ServiceProfessional.experience == query
-                        ).all()
-                    elif criteria == "average_rating":
-                        if rating_filter:
-                            if rating_condition == "high":
-                                results = ServiceProfessional.query.filter(
-                                    ServiceProfessional.average_rating >= float(rating_filter)
-                                ).all()
-                            elif rating_condition == "low":
-                                results = ServiceProfessional.query.filter(
-                                    ServiceProfessional.average_rating <= float(rating_filter)
-                                ).all()
-                    elif criteria == "verified_status":
-                        results = ServiceProfessional.query.filter(
-                            ServiceProfessional.verified_status.ilike(f"%{query}%")
-                        ).all()
-                    elif criteria == "blocked_status":
-                        block_value = True if query.lower() == "blocked" else False
-                        results = ServiceProfessional.query.filter(
-                            ServiceProfessional.block_status == block_value
-                        ).all()
-                    else:
-                        results = ServiceProfessional.query.all()
+            if entity not in search_mapping:
+                return {"message": "Invalid entity type."}, 400
 
-            # Searching for Service Requests
-            elif entity == "service_request":
-                if not query:
-                    results = ServiceRequest.query.all()
-                else:
-                    if criteria == "customer_name":
-                        results = (
-                            ServiceRequest.query.join(Customer)
-                            .filter(Customer.name.ilike(f"%{query}%"))
-                            .all()
-                        )
-                    elif criteria == "service_status":
-                        results = ServiceRequest.query.filter(
-                            ServiceRequest.service_status.ilike(f"%{query}%")
-                        ).all()
+            # Call the appropriate search method
+            search_method, field_definition = search_mapping[entity]
+            results = search_method(criteria, query, rating_filter, rating_condition)
 
-            # Searching for Customers
-            elif entity == "customer":
-                if not query:
-                    results = Customer.query.filter(Customer.role == 1).all()
-                else:
-                    if criteria == "name":
-                        results = Customer.query.filter(
-                            Customer.role == 1, Customer.name.ilike(f"%{query}%")
-                        ).all()
-                    elif criteria == "email":
-                        results = Customer.query.filter(
-                            Customer.role == 1, Customer.email.ilike(f"%{query}%")
-                        ).all()
-                    elif criteria == "phone":
-                        results = Customer.query.filter(
-                            Customer.role == 1, Customer.phone_no.ilike(f"%{query}%")
-                        ).all()
+            # Use marshal to serialize results
+            serialized_results = marshal(results, field_definition)
+            return {"results": serialized_results}, 200
 
-            return {"results": [result.to_dict() for result in results]}, 200
+        except Exception as e:
+            app.logger.error(f"Error in SearchAdminResource: {e}")
+            return {"message": str(e)}, 500
+        
+    @auth_required('token')
+    def search_services(self, criteria, query, *_):
+            if not query:
+                return Service.query.all()
+            filters = {
+                "name": Service.name.ilike(f"%{query}%"),
+                "base_price": Service.base_price == query,
+                "description": Service.description.ilike(f"%{query}%"),
+            }
+            return Service.query.filter(filters.get(criteria, True)).all()
+        
+    @auth_required('token')
+    def search_professionals(self, criteria, query, rating_filter, rating_condition):
+        filters = []
+
+        # Build filters based on the query
+        if query:
+            if "name" == criteria:
+                filters.append(ServiceProfessional.name.ilike(f"%{query}%"))
+            elif "experience" == criteria:
+                filters.append(ServiceProfessional.experience == query)
+            elif "verified_status" == criteria:
+                filters.append(ServiceProfessional.verified_status.ilike(f"%{query}%"))
+            elif "blocked_status" == criteria:
+                filters.append(ServiceProfessional.block_status == (query.lower() == "blocked"))
+
+        target_rating = None
+        if criteria == "average_rating":
+            try:
+                target_rating = float(query) if query else None
+            except ValueError:
+                return []
+
+        # Apply the filters to the query
+        query = ServiceProfessional.query
+        for filter_condition in filters:
+            query = query.filter(filter_condition)
+
+        professionals = query.all()
+
+        for professional in professionals:
+            if professional.average_rating is None:
+                avg_rating = calculate_average_rating_for_professional(professional.id)
+                if avg_rating is not None:
+                    professional.average_rating = avg_rating
+
+            if professional.average_rating is None:
+                recent_service_request = (
+                    ServiceRequest.query.filter(
+                        ServiceRequest.professional_id == professional.id,
+                        ServiceRequest.rating.isnot(None)
+                    )
+                    .order_by(ServiceRequest.date_of_completion.desc())
+                    .first()
+                )
+                if recent_service_request:
+                    professional.average_rating = recent_service_request.rating
+
+        # Apply rating filter if criteria is "average_rating" and target_rating is valid
+        if criteria == "average_rating" and target_rating is not None:
+            if rating_condition == "high":
+                professionals = [p for p in professionals if p.average_rating is not None and p.average_rating >= target_rating]
+            else:
+                professionals = [p for p in professionals if p.average_rating is not None and p.average_rating <= target_rating]
+
+        return professionals
+
+    @auth_required('token')
+    def search_customers(self, criteria, query, rating_filter, rating_condition):
+        base_query = Customer.query
+
+        filters = []
+        
+        if query:
+            if criteria == "name":
+                filters.append(Customer.name.ilike(f"%{query}%"))
+            elif criteria == "email":
+                filters.append(Customer.email.ilike(f"%{query}%"))
+            elif criteria == "phone":
+                filters.append(Customer.phone_no.ilike(f"%{query}%"))
+
+        target_rating = None
+        if criteria == "average_rating":
+            try:
+                target_rating = float(query) if query else None
+            except ValueError:
+                return []
+
+        # Apply filters
+        for condition in filters:
+            base_query = base_query.filter(condition)
+
+        customers = base_query.all()
+
+        for customer in customers:
+            if customer.average_rating is None:
+                avg_rating = calculate_average_rating_for_customer(customer.id)
+                if avg_rating is not None:
+                    customer.average_rating = avg_rating
+
+            if customer.average_rating is None:
+                recent_service_request = (
+                    ServiceRequest.query.filter(
+                        ServiceRequest.customer_id == customer.id,
+                        ServiceRequest.customer_rating.isnot(None)
+                    )
+                    .order_by(ServiceRequest.date_of_completion.desc())
+                    .first()
+                )
+                if recent_service_request:
+                    customer.average_rating = recent_service_request.customer_rating
+
+        # Apply rating filter if criteria is "average_rating" and target_rating is valid
+        if criteria == "average_rating" and target_rating is not None:
+            if rating_condition == "high":
+                customers = [c for c in customers if c.average_rating is not None and c.average_rating >= target_rating]
+            else:
+                customers = [c for c in customers if c.average_rating is not None and c.average_rating <= target_rating]
+
+        return customers
+
+   
+    @auth_required('token')
+    def search_service_requests(self, criteria, query, *_):
+        base_query = ServiceRequest.query \
+            .join(Customer, ServiceRequest.customer_id == Customer.id) \
+            .join(ServiceProfessional, ServiceRequest.professional_id == ServiceProfessional.id) \
+            .join(Service, ServiceRequest.service_id == Service.id)
+
+        filters = {
+            "customer_name": Customer.name.ilike(f"%{query}%"),
+            "professional_name": ServiceProfessional.name.ilike(f"%{query}%"),
+            "service_name": Service.name.ilike(f"%{query}%"),
+            "service_status": ServiceRequest.service_status.ilike(f"%{query}%"),
+        }
+
+        if criteria in filters:
+            base_query = base_query.filter(filters[criteria])
+
+        service_requests = base_query.all()
+        return marshal(service_requests, service_request_fields)
+
+# Register the resource
+api.add_resource(SearchAdminResource, "/search_admin")
+
+class SearchProfessionalResource(Resource):
+    @auth_required('token')
+    def get(self):
+        try:
+            professional_id = request.args.get("professional_id")
+            if not professional_id:
+                return {"message": "Professional ID is required"}, 400
+
+            try:
+                professional_id = int(professional_id)  # Convert to integer
+            except ValueError:
+                return {"message": "Invalid Professional ID"}, 400
+
+            entity = request.args.get("entity")
+            pin_code = request.args.get("pin_code")
+            date_of_service = request.args.get("date_of_service")
+            date_of_closing = request.args.get("date_of_closing")
+            query = request.args.get("query", "").strip()
+
+            if not entity:
+                return {"message": "Entity parameter is required"}, 400
+
+            # Base query: Filter service requests for this professional
+            base_query = ServiceRequest.query.filter(ServiceRequest.professional_id == professional_id)
+
+            # Apply search filters
+            if entity == "pin_code":
+                if not pin_code:
+                    return {"message": "Pin Code is required"}, 400
+                base_query = base_query.join(Customer).filter(Customer.pin_code == pin_code)
+
+            elif entity == "customer_name":
+                base_query = base_query.join(Customer)
+                
+                if query:
+                    base_query = base_query.filter(Customer.name.ilike(f"%{query}%"))
+                    service_requests = base_query.all()
+                else:
+                    # No query? Fetch all service requests associated with the professional
+                    service_requests = (
+                        db.session.query(ServiceRequest)
+                        .join(Customer)
+                        .filter(ServiceRequest.professional_id == professional_id)
+                        .all()
+                    )
+
+                results = [marshal(sr, service_request_fields) for sr in service_requests]
+                return jsonify({"results": results})
+
+
+            elif entity == "date_of_service":
+                print(date_of_service)
+                print(base_query.filter(ServiceRequest.requested_date == date_of_service))
+                if not date_of_service:
+                    return {"message": "Please enter a Date of Service."}, 400
+                base_query = base_query.filter(ServiceRequest.requested_date == date_of_service)
+                
+            elif entity == "date_of_closing":
+                print(date_of_closing)
+                if not date_of_closing:
+                    return {"message": "Please enter a Date of Closing."}, 400
+                base_query = base_query.filter(func.date(ServiceRequest.date_of_completion) == date_of_closing)
+
+            else:
+                return {"message": "Invalid entity type."}, 400
+
+            results = base_query.all()
+            return {"results": marshal(results, service_request_fields)}, 200  # Marshal results before returning
 
         except Exception as e:
             return {"message": str(e)}, 500
 
+# Register the resource
+api.add_resource(SearchProfessionalResource, "/search-professionals")
 
-# Register the resource with the Flask-RESTful API
-api.add_resource(SearchAdminResource, "/search_admin")
 
-class SearchProfessionalResource(Resource):
+
+class ProfessionalPincodesResource(Resource):
+    @auth_required('token')
     def get(self):
         try:
-            # Extract parameters from the query string
-            entity = request.args.get("entity")
-            pin_code = request.args.get("pin_code")
-            customer_name = request.args.get("customer_name")
-            date_of_service = request.args.get("date_of_service")
-            date_of_closing = request.args.get("date_of_closing")
+            professional_id = request.args.get("professional_id")
+            print(professional_id)
+            if not professional_id:
+                return {"message": "Professional ID is required"}, 400
 
-            # Query to fetch service requests
-            service_requests_query = ServiceRequest.query.filter(
-                ServiceRequest.professional_id == session["professional_id"]
+            try:
+                professional_id = int(professional_id)  # Ensure it's an integer
+            except ValueError:
+                return {"message": "Invalid Professional ID"}, 400
+
+            # Ensure the professional has completed at least one service request
+            pincodes_query = (
+                db.session.query(Customer.pin_code)
+                .join(ServiceRequest, ServiceRequest.customer_id == Customer.id)
+                .filter(ServiceRequest.professional_id == professional_id)
+                .distinct()
+                .all()
             )
 
-            # Apply filters based on entity type
-            if entity == "pin_code" and pin_code:
-                service_requests_query = service_requests_query.filter(
-                    ServiceRequest.customer.has(pin_code=pin_code)
-                )
 
-            elif entity == "customer_name" and customer_name:
-                service_requests_query = service_requests_query.filter(
-                    ServiceRequest.customer.has(Customer.name.ilike(f"%{customer_name}%"))
-                )
+            # Convert the result from [(123456,), (654321,)] to a list [123456, 654321]
+            pincodes_list = [pincode[0] for pincode in pincodes_query  if pincode[0] is not None]
 
-            elif entity == "date_of_service" and date_of_service:
-                try:
-                    date_of_service_obj = datetime.strptime(date_of_service, "%Y-%m-%d")
-                    service_requests_query = service_requests_query.filter(
-                        ServiceRequest.date_of_request == date_of_service_obj
-                    )
-                except ValueError:
-                    return {"error": "Invalid date format for date of service. Please use YYYY-MM-DD."}, 400
-
-            elif entity == "date_of_closing" and date_of_closing:
-                try:
-                    date_of_closing_obj = datetime.strptime(date_of_closing, "%Y-%m-%d")
-                    service_requests_query = service_requests_query.filter(
-                        ServiceRequest.date_of_completion >= date_of_closing_obj,
-                        ServiceRequest.date_of_completion
-                        < date_of_closing_obj.replace(hour=23, minute=59, second=59),
-                    )
-                except ValueError:
-                    return {"error": "Invalid date format for date of closing. Please use YYYY-MM-DD."}, 400
-
-            # Fetch the matching service requests
-            service_requests = service_requests_query.all()
-
-            # Collect unique customers based on the matching service requests
-            matching_customers = [
-                {
-                    "id": ServiceRequest.customer.id,
-                    "name": ServiceRequest.customer.name,
-                    "pin_code": ServiceRequest.customer.pin_code,
-                    "email": ServiceRequest.customer.email,
-                }
-                for ServiceRequest in service_requests
-            ]
-
-            # Return the results as a JSON response
-            return jsonify(matching_customers)
+            return jsonify({"pincodes": pincodes_list})
 
         except Exception as e:
-            return {"error": str(e)}, 500
+            return {"message": str(e)}, 500
+
+# Register the API resource
+api.add_resource(ProfessionalPincodesResource, "/forprofessional_pincodes")
 
 
-# Register the resource with Flask-RESTful API
-api.add_resource(SearchProfessionalResource, '/search-professionals')
 
 class CustomerServiceHistoryResource(Resource):
     @auth_required('token')
