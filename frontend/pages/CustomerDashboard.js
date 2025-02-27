@@ -150,7 +150,12 @@ export default {
       <p style="color:black">Your one-stop solution for all household services</p>
     </div>
 
-    <div class="container mt-4">
+    <!-- Display Blocked Message -->
+    <div v-if="statusMessage" class="alert alert-warning text-center">
+      {{ statusMessage }}
+    </div>
+
+    <div v-if="!statusMessage" class="container mt-4">
       <h3 class="text-center mb-4" style="text-decoration: underline;">Explore Our Services</h3>
       <div class="row">
         <div v-for="service in services" :key="service.id" class="col-md-4 mb-4">
@@ -176,7 +181,8 @@ export default {
         </div>
       </div>
     </div>
-     <!-- Customer Testimonials Section -->
+
+    <!-- Customer Testimonials Section -->
     <div class="container mt-5">
       <h3 class="text-center mb-4" style="text-decoration: underline;">What Our Customers Say</h3>
       <div class="row">
@@ -194,74 +200,90 @@ export default {
       </div>
     </div>
   </div>
-  </div>
   `,
+
   data() {
     return {
-      customerName: this.getCustomerName(),
+      customerName: "",
       services: [], // Will store fetched services
+      statusMessage: "", // Holds the block message
       testimonials: [
         {
           name: "Alice Johnson",
-          feedback:
-            "The service was excellent, and the professional was very courteous!",
+          feedback: "The service was excellent!",
           location: "New York, NY",
         },
         {
           name: "Robert Smith",
-          feedback: "Highly recommend! Quick and reliable service every time.",
+          feedback: "Highly recommend! Quick and reliable.",
           location: "Los Angeles, CA",
         },
         {
           name: "Emily Davis",
-          feedback: "Amazing experience! Booking and service were seamless.",
+          feedback: "Amazing experience! Seamless booking.",
           location: "Chicago, IL",
         },
       ],
     };
   },
+
   created() {
-    this.fetchServices(); // Fetch services on component creation
+    this.fetchCustomerData();
   },
+
   methods: {
-    getCustomerName() {
-      const user = JSON.parse(localStorage.getItem("user"));
-      return user ? user.customer_name : "Customer"; // Fallback to "Customer" if not found
+    async fetchCustomerData() {
+      try {
+        const user = JSON.parse(localStorage.getItem("user"));
+        this.customerName = user ? user.customer_name : "Customer";
+
+        const response = await fetch(`/api/customers/${user.customer_id}`, {
+          headers: { "Authentication-Token": this.$store.state.auth_token },
+        });
+
+        if (!response.ok) throw new Error("Failed to fetch customer data");
+
+        const customerData = await response.json();
+        console.log("Customer data:", customerData);
+        if (customerData.is_blocked) {
+          this.statusMessage =
+            "Your account is blocked by the admin. You cannot book services.";
+          return;
+        }
+
+        this.fetchServices(); // Fetch services only if the customer is not blocked
+      } catch (error) {
+        console.error("Error fetching customer data:", error);
+        this.statusMessage =
+          "Failed to load customer data. Please try again later.";
+      }
     },
+
     async fetchServices() {
       try {
         const response = await fetch("/api/services", {
-          method: "GET",
           headers: {
             "Content-Type": "application/json",
-            "Authentication-Token": this.$store.state.auth_token || "",
+            "Authentication-Token": this.$store.state.auth_token,
           },
         });
-        // console.log(response.json());
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error("Failed to fetch services");
 
         const data = await response.json();
-        if (data && Array.isArray(data)) {
-          // Transform the response to match expected structure
-          this.services = data.map((service) => ({
-            id: service.id,
-            title: service.name, // Map 'name' to 'title'
-            image: service.image_url, // Default image if none provided
-            basePrice: service.base_price, // Add base price if needed
-            description: service.description, // Add description if needed
-          }));
-        } else {
-          console.warn("No services found in response:", data);
-        }
+        this.services = data.map((service) => ({
+          id: service.id,
+          title: service.name,
+          image: service.image_url,
+          basePrice: service.base_price,
+          description: service.description,
+        }));
       } catch (error) {
         console.error("Error fetching services:", error);
       }
     },
+
     viewProfessionals(serviceId) {
-      // Redirect to the Service Professionals page for the selected service
       this.$router.push(`/service-professionals/${serviceId}`);
     },
   },

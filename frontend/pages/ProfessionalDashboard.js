@@ -2,7 +2,10 @@ export default {
   template: `
   <div class="container mt-4">
     <h2 class="text-center mb-4">Professional Dashboard</h2>
-    
+          <!-- Display Blocked/Unverified Message -->
+    <div v-if="statusMessage" class="alert alert-warning text-center">
+    {{ statusMessage }}
+  </div>
     <!-- Service Requests Tabs -->
     <ul class="nav nav-tabs mb-4">
       <li class="nav-item">
@@ -232,6 +235,7 @@ export default {
       customerRating: "",
       customerRemark: "",
       requestId: "",
+      statusMessage: "", // Holds the block/unverified message
     };
   },
 
@@ -275,9 +279,13 @@ export default {
           this.pendingRequests = [];
           this.acceptedRequests = [];
           this.completedRequests = [];
-          alert(
-            "Your account is currently blocked. You cannot receive new service requests."
-          );
+          this.statusMessage =
+            "Your account is blocked by the admin. You cannot receive service requests.";
+          return;
+        }
+        if (!profData.verified_status === "approved") {
+          this.statusMessage =
+            "Your account needs to be verified by the admin before accepting service requests.";
           return;
         }
 

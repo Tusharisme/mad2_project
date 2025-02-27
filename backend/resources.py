@@ -275,7 +275,7 @@ class AllServicesResource(Resource):
         try:
             # Convert base_price and base_time_required to correct types
             base_price = float(base_price)
-            base_time_required = int(base_time_required)
+            base_time_required = (base_time_required)
         except ValueError:
             return {'message': 'Invalid data types for base_price or base_time_required'}, 400
         

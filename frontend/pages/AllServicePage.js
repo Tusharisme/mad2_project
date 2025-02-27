@@ -57,7 +57,7 @@ export default {
                               placeholder="Description" required />
                           <input v-model="newService.base_price" type="number" class="form-control mb-3"
                               placeholder="Base Price" required />
-                          <input v-model="newService.base_time_required" type="number" class="form-control mb-3"
+                          <input v-model="newService.base_time_required"  class="form-control mb-3"
                               placeholder="Base Time (hours)" required />
                           <input type="file" class="form-control mb-3" accept="image/*" @change="handleFileUpload" />
                       </div>
