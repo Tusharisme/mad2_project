@@ -62,7 +62,6 @@ export default {
           <div v-if="errorMsg" class="alert alert-danger" role="alert">
             <b>{{ errorMsg }}</b>
           </div>
-          <a href="/login" class="btn btn-link"><b>Login here</b></a>
         </form>
       </div>
     </div>

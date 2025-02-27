@@ -1976,3 +1976,255 @@ class GenerateProfessionalReportResource(Resource):
 
 # Add to API routes
 api.add_resource(GenerateProfessionalReportResource, '/professional/generate_report')
+
+# import random
+# import string
+# from datetime import timedelta
+# from flask import request
+# from flask_restful import Resource
+# from backend.models import User, db
+# from backend.celery.tasks import send_forgot_password_email
+# from backend.celery.celery_factory import redis_client
+# from flask_security import hash_password
+
+# def generate_otp():
+#     """Generate a 6-digit random OTP"""
+#     return ''.join(random.choices(string.digits, k=6))
+
+# class ForgotPasswordResource(Resource):
+#     def post(self):
+#         data = request.get_json()
+#         email_or_phone = data.get("email_or_phone")
+
+#         if not email_or_phone:
+#             return {"message": "Email or phone number is required"}, 400
+
+#         user = User.query.filter(
+#             (User.email == email_or_phone) |
+#             (User.customer.has(Customer.phone_no == email_or_phone)) |
+#             (User.service_professional.has(ServiceProfessional.phone_no == email_or_phone))
+#         ).first()
+#         if not user:
+#             return {"message": "User not found"}, 404
+
+#         otp = generate_otp()
+#         redis_key = f"otp:{user.id}"
+#         redis_client.setex(redis_key, timedelta(minutes=10), otp)
+
+#         send_forgot_password_email.delay(user.email, user.username, otp)
+
+#         return {"message": "OTP sent to registered email"}, 200
+
+# class VerifyOTPResource(Resource):
+#     def post(self):
+#         data = request.get_json()
+#         email = data.get("email")
+#         otp = data.get("otp")
+
+#         if not email or not otp:
+#             return {"message": "Email and OTP are required"}, 400
+
+#         user = User.query.filter_by(email=email).first()
+#         if not user:
+#             return {"message": "User not found"}, 404
+
+#         redis_key = f"otp:{user.id}"
+#         stored_otp = redis_client.get(redis_key)
+
+#         if not stored_otp or stored_otp != otp:
+#             return {"message": "Invalid or expired OTP"}, 400
+
+#         return {"message": "OTP verified successfully"}, 200
+
+# class ResetPasswordResource(Resource):
+#     def post(self):
+#         data = request.get_json()
+#         email = data.get("email")
+#         otp = data.get("otp")
+#         new_password = data.get("new_password")
+
+#         if not email or not otp or not new_password:
+#             return {"message": "Email, OTP, and new password are required"}, 400
+
+#         user = User.query.filter_by(email=email).first()
+#         if not user:
+#             return {"message": "User not found"}, 404
+
+#         redis_key = f"otp:{user.id}"
+#         stored_otp = redis_client.get(redis_key)
+
+#         if not stored_otp or stored_otp != otp:
+#             return {"message": "Invalid or expired OTP"}, 400
+
+#         user.password = hash_password(new_password)
+#         db.session.commit()
+
+#         redis_client.delete(redis_key)
+
+#         return {"message": "Password reset successful"}, 200
+# api.add_resource(ForgotPasswordResource, "/forgot-password")
+# api.add_resource(VerifyOTPResource, "/verify-otp")
+# api.add_resource(ResetPasswordResource, "/reset-password")
+
+import random
+import string
+from datetime import timedelta
+from flask import request
+from flask_restful import Resource
+from backend.models import User, Customer, ServiceProfessional, db
+from backend.celery.tasks import send_forgot_password_email
+from backend.celery.celery_factory import redis_client
+from flask_security import hash_password
+from flask_cors import CORS
+
+# Enable CORS to allow frontend requests
+CORS()
+
+def generate_otp():
+    """Generate a 6-digit random OTP"""
+    return ''.join(random.choices(string.digits, k=6))
+
+class ForgotPasswordResource(Resource):
+    def post(self):
+        data = request.get_json()
+        print("Received request data:", data)
+
+        email_or_phone = data.get("email_or_phone")
+        if not email_or_phone:
+            return {"message": "Email or phone number is required"}, 400
+
+        user = User.query.filter(
+            (User.email == email_or_phone) |
+            (User.customer.has(Customer.phone_no == email_or_phone)) |
+            (User.service_professional.has(ServiceProfessional.phone_no == email_or_phone))
+        ).first()
+
+        if not user:
+            print(f"User not found for: {email_or_phone}")
+            return {"message": "User not found"}, 404
+
+        otp = generate_otp()
+        redis_key = f"otp:{user.id}"
+        redis_client.setex(redis_key, timedelta(minutes=10), otp)
+        print(f"Stored OTP {otp} for user {user.email} (Redis Key: {redis_key})")
+
+        send_forgot_password_email.delay(user.email, user.username, otp)
+
+        return {"message": "OTP sent to registered email"}, 200
+
+class VerifyOTPResource(Resource):
+    def post(self):
+        data = request.get_json()
+        print("Received request data:", data)
+
+        email_or_phone = data.get("email_or_phone")
+        otp = data.get("otp")
+
+        if not email_or_phone or not otp:
+            return {"message": "Email and OTP are required"}, 400
+
+        user = User.query.filter(
+            (User.email == email_or_phone) |
+            (User.customer.has(Customer.phone_no == email_or_phone)) |
+            (User.service_professional.has(ServiceProfessional.phone_no == email_or_phone))
+        ).first()
+
+        if not user:
+            print(f"User not found for: {email_or_phone}")
+            return {"message": "User not found"}, 404
+
+        redis_key = f"otp:{user.id}"
+        stored_otp = redis_client.get(redis_key)
+
+        if not stored_otp:
+            print(f"OTP not found or expired for user {user.email}")
+            return {"message": "Invalid or expired OTP", "success": False}, 200  # ✅ Return 200 instead of 400
+
+        stored_otp = stored_otp.strip()  # Decode Redis bytes to string
+        attempt_key = f"otp_attempts:{user.id}"  # Ensure attempt key is always defined
+
+        if stored_otp != otp.strip():
+            print(f"Invalid OTP entered for {user.email}. Expected: {stored_otp}, Received: {otp}")
+
+            # Track failed attempts in Redis
+            attempts = redis_client.get(attempt_key)
+            attempts = int(attempts) if attempts else 0
+            attempts += 1
+            redis_client.setex(attempt_key, timedelta(minutes=10), attempts)
+
+            return {"message": "Invalid OTP. Please try again.", "success": False}, 200  # ✅ Return 200 instead of 400
+
+        print(f"OTP verified successfully for {user.email}")
+
+        # Reset attempt counter on successful verification
+        redis_client.delete(attempt_key)
+
+        return {"message": "OTP verified successfully", "success": True}, 200
+
+
+
+class ResetPasswordResource(Resource):
+    def post(self):
+        data = request.get_json()
+        print("Received request data:", data)
+
+        email_or_phone = data.get("email_or_phone")  
+        otp = data.get("otp")
+        new_password = data.get("new_password")
+
+        if not email_or_phone or not otp or not new_password:
+            return {"message": "Email/Phone, OTP, and new password are required"}, 400
+
+        # Allow both email and phone for lookup
+        user = User.query.filter(
+            (User.email == email_or_phone) |
+            (User.customer.has(Customer.phone_no == email_or_phone)) |
+            (User.service_professional.has(ServiceProfessional.phone_no == email_or_phone))
+        ).first()
+
+        if not user:
+            print(f"User not found for: {email_or_phone}")
+            return {"message": "User not found"}, 404
+
+        redis_key = f"otp:{user.id}"
+        stored_otp = redis_client.get(redis_key)
+
+        if not stored_otp:
+            print(f"OTP not found or expired for user {user.email}")
+            return {"message": "Invalid or expired OTP"}, 400
+
+        stored_otp = stored_otp.strip()
+
+        if stored_otp != otp.strip():
+            print(f"Invalid OTP entered during password reset for {user.email}. Expected: {stored_otp}, Received: {otp}")
+            return {"message": "Invalid OTP"}, 400
+
+        try:
+            print(f"Hashing new password for user: {user.email}")
+            user.password = hash_password(new_password)
+            db.session.commit()
+            print(f"Password updated successfully for user: {user.email}")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error updating password for {user.email}: {str(e)}")
+            return {"message": "Error updating password"}, 500
+
+        redis_client.delete(redis_key)
+        print(f"OTP {otp} deleted from Redis for user {user.email}")
+
+        return {"message": "Password reset successful"}, 200
+
+
+# Register API endpoints
+api.add_resource(ForgotPasswordResource, "/forgot-password")
+api.add_resource(VerifyOTPResource, "/verify-otp")
+api.add_resource(ResetPasswordResource, "/reset-password")
+
+
+from flask import jsonify
+from backend.utils import get_professional_count
+
+@app.route("/api/services/<int:service_id>/professional-count", methods=['GET'])
+def get_service_professional_count(service_id):
+    count = get_professional_count(service_id)
+    return jsonify({"count": count})

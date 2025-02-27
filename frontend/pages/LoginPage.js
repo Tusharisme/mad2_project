@@ -31,7 +31,7 @@ export default {
 
         <br /><br />
         <router-link to="/register_professional" class="btn btn-link"><b>Register as Professional</b></router-link>
-        <router-link to="/forgot-password" class="btn btn-link"><b>Forgot Password?</b></router-link>
+        <router-link to="/forgot_password" class="btn btn-link"><b>Forgot Password?</b></router-link>
       </div>
     </div>
   `,

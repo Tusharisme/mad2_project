@@ -27,6 +27,8 @@ class User(db.Model, UserMixin):
     fs_uniquifier = db.Column(db.String(255), unique=True, nullable=False)
     active = db.Column(db.Boolean, default=True)
     roles = db.relationship("Role", secondary="user_roles", backref=db.backref("users", lazy="dynamic"))
+    last_login = db.Column(db.DateTime, default=None)  # ✅ Add this field
+
 
     # Relationships to extended models
     customer = db.relationship("Customer", back_populates="user", uselist=False, cascade="all, delete-orphan")

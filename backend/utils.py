@@ -31,3 +31,8 @@ def calculate_average_rating_for_professional(professional_id):
         return round(avg_rating, 2) if avg_rating else None
     
     return None
+
+from backend.models import ProfessionalService
+
+def get_professional_count(service_id):
+    return ProfessionalService.query.filter_by(service_id=service_id).count()

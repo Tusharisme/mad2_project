@@ -21,6 +21,7 @@ import ProfessionalProfile from "../pages/ProfessionalProfile.js";
 import CustomerProfile from "../pages/CustomerProfile.js";
 import CustomerPayment from "../pages/CustomerPayment.js";
 import ProfessionalPayment from "../pages/ProfessionalPayment.js";
+import ForgotPassword from "../pages/ForgotPassword.js";
 
 const routes = [
   { path: "/", component: LandingPage },
@@ -119,6 +120,10 @@ const routes = [
     path: "/professional_payment",
     component: ProfessionalPayment,
     meta: { requiresLogin: true, role: "professional" },
+  },
+  {
+    path: "/forgot_password",
+    component: ForgotPassword,
   },
 ];
 

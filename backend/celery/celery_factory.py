@@ -1,3 +1,4 @@
+import redis
 from celery import Celery, Task
 from flask import Flask
 
@@ -9,6 +10,9 @@ class Celeryconfig:
     accept_content = ['json']
     timezone = 'Asia/Kolkata'
     enable_utc = True
+
+# Initialize Redis for OTP storage (Using Redis Database 2)
+redis_client = redis.StrictRedis(host='localhost', port=6379, db=2, decode_responses=True)
 
 def celery_init_app(app: Flask) -> Celery:
     class FlaskTask(Task):

@@ -9,35 +9,36 @@ export default {
           Add New Service
       </button>
 
-      <!-- Services Table -->
       <table v-if="services.length > 0" class="table table-bordered table-hover table-custom">
-          <thead class="table-dark-custom">
-              <tr>
-                  <th scope="col">ID</th>
-                  <th scope="col">Service Name</th>
-                  <th scope="col">Base Price</th>
-                  <th scope="col">No. of Professionals</th>
-                  <th scope="col">Action</th>
-              </tr>
-          </thead>
-          <tbody>
-              <tr v-for="service in services" :key="service.id">
-                  <td>{{ service.id }}</td>
-                  <td>{{ service.name }}</td>
-                  <td>{{ service.base_price }}</td>
-                  <td>{{ service.professional_count }}</td>
-                  <td>
-                      <button type="button" class="btn btn-success-custom" data-bs-toggle="modal"
-                          data-bs-target="#editServiceModal" @click="populateEditModal(service)">
-                          Edit
-                      </button>
-                      <button type="button" class="btn btn-danger-custom ms-2" @click="deleteService(service.id)">
-                          Delete
-                      </button>
-                  </td>
-              </tr>
-          </tbody>
-      </table>
+      <thead class="table-dark-custom">
+          <tr>
+              <th scope="col">ID</th>
+              <th scope="col">Service Name</th>
+              <th scope="col">Base Price</th>
+              <th scope="col">No. of Professionals</th>
+              <th scope="col">Action</th>
+          </tr>
+      </thead>
+      <tbody>
+          <tr v-for="service in services" :key="service.id">
+              <td>{{ service.id }}</td>
+              <td>{{ service.name }}</td>
+              <td>{{ service.base_price }}</td>
+              <td>{{ service.professionalCount }}</td>
+              <td>
+                  <button type="button" class="btn btn-success-custom" data-bs-toggle="modal"
+                      data-bs-target="#editServiceModal" @click="populateEditModal(service)">
+                      Edit
+                  </button>
+                  <button type="button" class="btn btn-danger-custom ms-2" @click="deleteService(service.id)">
+                      Delete
+                  </button>
+              </td>
+          </tr>
+      </tbody>
+  </table>
+  
+
 
       <p v-else class="mt-3">No services available.</p>
 
@@ -132,13 +133,24 @@ export default {
         this.newService.picture = file; // Update the property as needed
       }
     },
-
     async fetchServices() {
-      // Fetch services directly from the backend or API
       try {
         const response = await fetch("/api/services");
         if (response.ok) {
-          this.services = await response.json();
+          const services = await response.json();
+          // Fetch professional counts for each service
+          for (let service of services) {
+            const countResponse = await fetch(
+              `/api/services/${service.id}/professional-count`
+            );
+            if (countResponse.ok) {
+              const countData = await countResponse.json();
+              service.professionalCount = countData.count;
+            } else {
+              service.professionalCount = 0;
+            }
+          }
+          this.services = services;
         } else {
           console.error("Failed to fetch services");
         }

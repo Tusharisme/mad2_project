@@ -1,9 +1,13 @@
 from celery import shared_task
 from backend.celery.mail_services import send_email
-from backend.models import Service, ServiceProfessional, ServiceRequest, Customer
-import datetime
+from backend.models import *
 import os
-
+import io
+import csv
+import zipfile
+import pandas as pd
+from datetime import datetime
+from flask import jsonify
 
 @shared_task(ignore_result=True)
 def email_reminder():
@@ -81,13 +85,6 @@ def send_monthly_report():
 
     return "Monthly reports sent successfully."
 
-import csv
-import io
-import zipfile
-import pandas as pd
-from datetime import datetime
-from celery import shared_task
-from backend.models import ServiceRequest, Customer, ServiceProfessional, Payment, Wallet, ProfessionalWallet, Service
 
 @shared_task(ignore_result=False)
 def create_csv_zip():
@@ -239,17 +236,6 @@ def create_excel():
     return output.getvalue()
 
 
-from flask import jsonify
-from celery import shared_task
-import io
-import zipfile
-import csv
-import pandas as pd
-from backend.models import ServiceRequest, Payment, Wallet, Customer, ServiceProfessional, Service
-import io
-import zipfile
-import csv
-from celery import shared_task
 
 @shared_task(ignore_result=False)
 def create_customer_csv_zip(customer_id):
@@ -322,9 +308,6 @@ def create_customer_csv_zip(customer_id):
     output.seek(0)
     return output.getvalue()
 
-import io
-import pandas as pd
-from celery import shared_task
 
 @shared_task(ignore_result=False)
 def create_customer_excel(customer_id):
@@ -456,11 +439,7 @@ def create_professional_excel(professional_id):
     output.seek(0)
     return output.getvalue()
 
-import io
-import csv
-import zipfile
-from celery import shared_task
-from backend.models import ServiceProfessional, ServiceRequest, Payment, ProfessionalWallet
+
 
 @shared_task(ignore_result=False)
 def create_professional_csv_zip(professional_id):
@@ -531,3 +510,129 @@ def create_professional_csv_zip(professional_id):
 
     output.seek(0)
     return output.getvalue()
+
+
+@shared_task(ignore_result=True)
+def send_login_email(user_email, user_name, user_type):
+    subject = "Successful Login Notification - Your Account Activity"
+
+    content = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+            <h2 style="color: #2C3E50;">Hello {user_name},</h2>
+            <p>We noticed a new login to your account as a <b>{user_type.capitalize()}</b>. If this was you, no further action is required.</p>
+
+            <h3 style="color: #2C3E50;">Login Details:</h3>
+            <ul>
+                <li><b>Date & Time:</b> {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC</li>
+                <li><b>Account Type:</b> {user_type.capitalize()}</li>
+            </ul>
+
+            <p>If you did not initiate this login, we strongly recommend taking the following actions immediately:</p>
+            <ul>
+                <li>Change your account password from the settings page.</li>
+                <li>Enable two-factor authentication (2FA) for added security.</li>
+                <li>Contact our support team to report any suspicious activity.</li>
+            </ul>
+
+            <p>We are committed to keeping your account safe and secure. If you have any concerns, please reach out to our support team.</p>
+
+            <p>Best Regards,</p>
+            <p><b>Your Platform Team</b></p>
+            <hr>
+            <p style="font-size: 12px; color: #777;">This is an automated email. Please do not reply to this message.</p>
+        </body>
+    </html>
+    """
+
+    send_email(user_email, subject, content, content_type='html')
+
+
+@shared_task
+def send_registration_email(email, name, role):
+    """Send a professional registration confirmation email asynchronously with HTML formatting"""
+    subject = "Welcome to Our Platform – Your Account is Ready!"
+
+    if role == 'customer':
+        body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+            <h2 style="color: #2C3E50;">Welcome, {name}!</h2>
+            
+            <p>We’re thrilled to have you on board as a valued <b>Customer</b>. Your account has been successfully created, and you are now ready to explore a wide range of services from top professionals.</p>
+
+            <h3 style="color: #2C3E50;">Here’s what you can do next:</h3>
+            <ul>
+                <li>Browse available services tailored to your needs.</li>
+                <li>Connect with skilled professionals and request services.</li>
+                <li>Track your bookings and manage your account effortlessly.</li>
+            </ul>
+
+            <p>We’re committed to providing you with the best experience possible. If you need any assistance, our support team is just a message away.</p>
+
+            <p>Enjoy your journey with us!</p>
+
+            <p>Best Regards,</p>
+            <p><b>Your Platform Team</b></p>
+            <hr>
+            <p style="font-size: 12px; color: #777;">This is an automated email. Please do not reply to this message.</p>
+        </body>
+        </html>
+        """
+    
+    elif role == 'professional':
+        body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+            <h2 style="color: #2C3E50;">Welcome, {name}!</h2>
+            
+            <p>Congratulations on successfully registering as a <b>Service Professional</b> on our platform! We’re excited to have you join our community of experts.</p>
+
+            <h3 style="color: #2C3E50;">What happens next?</h3>
+            <ul>
+                <li>Our team will review your details to ensure a smooth onboarding process.</li>
+                <li>Once approved, you can start offering your services to customers.</li>
+                <li>Manage your service requests, update availability, and grow your business.</li>
+            </ul>
+
+            <p>We’re here to support you every step of the way. If you have any questions, feel free to reach out to our team.</p>
+
+            <p>We look forward to seeing your success!</p>
+
+            <p>Best Regards,</p>
+            <p><b>Your Platform Team</b></p>
+            <hr>
+            <p style="font-size: 12px; color: #777;">This is an automated email. Please do not reply to this message.</p>
+        </body>
+        </html>
+        """
+
+    send_email(email, subject, body, content_type='html')  # ✅ Matches the login email format
+
+
+from celery import shared_task
+from backend.celery.mail_services import send_email
+
+@shared_task
+def send_forgot_password_email(email, username, otp):
+    """Send forgot password OTP email asynchronously"""
+    subject = "Reset Your Password - OTP Verification"
+
+    body = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; color: #333;">
+            <h2 style="color: #2C3E50;">Hello {username},</h2>
+            <p>You have requested to reset your password. Please use the OTP below to proceed:</p>
+            <h3 style="color: #E74C3C;">{otp}</h3>
+            <p>This OTP is valid for <b>10 minutes</b>. Do not share it with anyone.</p>
+            <p>If you did not request this, please ignore this email or contact our support.</p>
+            <br>
+            <p>Best Regards,</p>
+            <p><b>Your Platform Team</b></p>
+            <hr>
+            <p style="font-size: 12px; color: #777;">This is an automated email, please do not reply.</p>
+        </body>
+    </html>
+    """
+
+    send_email(email, subject, body, content_type="html")
