@@ -8,7 +8,7 @@ export default {
             <h1 class="display-4 mb-3">Home Services at Your Doorstep</h1>
             <p class="lead mb-4">Find the best service professionals for all your household needs</p>
             <button class="btn btn-custom btn-lg">
-            <router-link to="/desired-route" class="nav-link"><b>Get Started</b></router-link>
+            <router-link to="/login" class="nav-link"><b>Get Started</b></router-link>
         </button>
                   </div>
         </div>
