@@ -401,24 +401,82 @@ class ServiceResource(Resource):
             return {'message': f"Error deleting service: {str(e)}"}, 500
     
 
-class CheckUsernameAvailabilityResource(Resource):
-    def get(self, username):
-        try:
-            # Query the database to check if the username exists
-            user = User.query.filter_by(username=username).first()
-            if user:
-                return jsonify({"available": False, "message": "Username is already taken."})
-            else:
-                return jsonify({"available": True, "message": "Username is available."})
-        except Exception as e:
-            return jsonify({"message": str(e)}), 500
+# class CheckUsernameAvailabilityResource(Resource):
+#     def get(self, username):
+#         try:
+#             # Query the database to check if the username exists
+#             user = User.query.filter_by(username=username).first()
+#             if user:
+#                 return jsonify({"available": False, "message": "Username is already taken."})
+#             else:
+#                 return jsonify({"available": True, "message": "Username is available."})
+#         except Exception as e:
+#             return jsonify({"message": str(e)}), 500
         
-class CheckEmailResource(Resource):
-    def get(self, email):
-        user = User.query.filter_by(email=email).first()
-        if user:
-            return jsonify({"available": False, "message": "Email is already taken"})
-        return jsonify({"available": True})
+# class CheckEmailResource(Resource):
+#     def get(self, email):
+#         user = User.query.filter_by(email=email).first()
+#         if user:
+#             return jsonify({"available": False, "message": "Email is already taken"})
+#         return jsonify({"available": True})
+
+# class CheckUsernameAvailabilityResource(Resource):
+#     def get(self, username):
+#         try:
+#             # Query the database to check if the username exists
+#             user = User.query.filter_by(username=username).first()
+#             return {
+#                 "available": user is None,
+#                 "message": "Username is available." if user is None else "Username is already taken."
+#             }
+#         except Exception as e:
+#             return {"error": str(e)}, 500
+
+# class CheckEmailResource(Resource):
+#     def get(self, email):
+#         try:
+#             # Query the database to check if the email exists
+#             user = User.query.filter_by(email=email).first()
+#             return {
+#                 "available": user is None,
+#                 "message": "Email is available." if user is None else "Email is already taken."
+#             }
+#         except Exception as e:
+#             return {"error": str(e)}, 500
+        
+class CheckAvailabilityResource(Resource):
+    def post(self):
+        try:
+            data = request.get_json()
+            field_type = data.get("type")
+            value = data.get("value")
+            current_user_id = data.get("current_user_id")
+
+            if not field_type or not value:
+                return {"error": "Invalid request parameters."}, 400
+
+            # Check the appropriate field
+            if field_type == "username":
+                user = User.query.filter(User.username == value, User.id != current_user_id).first()
+                return {
+                    "available": user is None,
+                    "message": "Username is available." if user is None else "Username is already taken."
+                }
+
+            elif field_type == "email":
+                user = User.query.filter(User.email == value, User.id != current_user_id).first()
+                return {
+                    "available": user is None,
+                    "message": "Email is available." if user is None else "Email is already in use."
+                }
+
+            return {"error": "Invalid field type."}, 400
+
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+api.add_resource(CheckAvailabilityResource, "/check-availability")
+
     
 class ModifyProfessionalStatusResource(Resource):
     @auth_required('token')
@@ -454,10 +512,15 @@ class ModifyProfessionalStatusResource(Resource):
 
 class ProfessionalsByServiceResource(Resource):
     @auth_required('token')
-    @marshal_with(service_professional_fields)
     def get(self, service_id):
         try:
             print(f"Fetching professionals for service_id: {service_id}")
+            
+            # Get the base service first
+            base_service = Service.query.get(service_id)
+            if not base_service:
+                return {'message': 'Service not found'}, 404
+                
             professionals = (
                 ServiceProfessional.query
                 .join(ProfessionalService, ServiceProfessional.id == ProfessionalService.professional_id)
@@ -469,11 +532,45 @@ class ProfessionalsByServiceResource(Resource):
                 )
                 .all()
             )
-            print(professionals)
-            if professionals==[]:
+            
+            if not professionals:
                 return {'message': 'No professionals found for this service.'}, 404
+            
+            # Prepare the response with custom services data
+            results = []
+            for professional in professionals:
+                prof_dict = marshal(professional, service_professional_fields)
                 
-            return professionals, 200
+                # Get the professional's custom service details
+                custom_services = ProfessionalService.query.filter_by(
+                    professional_id=professional.id,
+                    service_id=service_id
+                ).all()
+                
+                # If no custom services or the custom fields are None, use base service values
+                if not custom_services:
+                    # Create a default service based on the base service
+                    prof_dict['custom_services'] = [{
+                        'id': None,
+                        'custom_price': base_service.base_price,
+                        'custom_description': base_service.description,
+                        'custom_time_required': base_service.base_time_required
+                    }]
+                else:
+                    # Process existing custom services
+                    prof_dict['custom_services'] = []
+                    for cs in custom_services:
+                        custom_service = {
+                            'id': cs.id,
+                            'custom_price': cs.custom_price if cs.custom_price is not None else base_service.base_price,
+                            'custom_description': cs.custom_description if cs.custom_description else base_service.description,
+                            'custom_time_required': cs.custom_time_required if cs.custom_time_required else base_service.base_time_required
+                        }
+                        prof_dict['custom_services'].append(custom_service)
+                
+                results.append(prof_dict)
+                
+            return results, 200
             
         except Exception as e:
             print(f"Error in ProfessionalsByServiceResource: {e}")
@@ -485,8 +582,8 @@ api.add_resource(ProfessionalsByServiceResource, '/professionals-by-service/<int
 api.add_resource(ModifyProfessionalStatusResource, '/service_professionals/<string:action>/<int:id>')
 
 # Add the new resource to the API
-api.add_resource(CheckUsernameAvailabilityResource, '/check-username/<string:username>')
-api.add_resource(CheckEmailResource, "/check-email/<string:email>")
+# api.add_resource(CheckUsernameAvailabilityResource, '/check-username/<string:username>')
+# api.add_resource(CheckEmailResource, "/check-email/<string:email>")
 
 # Add the new resource to the API
 api.add_resource(ServiceResource, '/services/<int:service_id>')
@@ -878,6 +975,75 @@ class CustomerStatusResource(Resource):
         
 api.add_resource(CustomerStatusResource, '/customers/<int:customer_id>/status')
 
+# class SearchResource(Resource):
+#     @auth_required('token')
+#     def get(self):
+#         try:
+#             entity = request.args.get('entity')
+#             query = request.args.get('query', '').strip()
+#             pincode = request.args.get('pincode')
+#             rating = request.args.get('rating', '').strip()
+#             condition = request.args.get('condition')
+
+#             if not entity:
+#                 return {'message': 'Entity parameter is required'}, 400
+
+#             # Base query for professionals
+#             base_query = (
+#                 ServiceProfessional.query
+#                 .filter(ServiceProfessional.verified_status == "approved")
+#                 .filter(ServiceProfessional.block_status == False)
+#             )
+
+#             if entity == 'service':
+#                 results = Service.query.filter(Service.name.ilike(f'%{query}%')).all()
+#                 return marshal(results, service_fields)
+
+#             elif entity == 'pincode':
+#                 if not pincode:
+#                     return {'message': 'Pincode is required'}, 400
+
+#                 results = (
+#                     base_query.filter(ServiceProfessional.pin_code == pincode)
+#                     .with_entities(Service)
+#                     .distinct()
+#                     .all()
+#                 )
+#                 return marshal(results, service_fields)
+
+#             elif entity == 'rating':
+#                 # ✅ If rating is empty, return all professionals
+#                 if not rating:
+#                     results = base_query.all()
+#                     return marshal(results, service_professional_fields)
+
+#                 # Convert rating to float if provided
+#                 try:
+#                     rating = float(rating)
+#                 except ValueError:
+#                     return {'message': 'Invalid rating value. Must be a number.'}, 400
+
+#                 # Apply rating condition filter
+#                 if condition == 'high':
+#                     results = base_query.filter(ServiceProfessional.average_rating >= rating).all()
+#                 elif condition == 'low':
+#                     results = base_query.filter(ServiceProfessional.average_rating <= rating).all()
+#                 else:
+#                     return {'message': 'Invalid condition. Use "high" or "low".'}, 400
+
+#                 # ✅ Ensure professionals with missing average ratings are calculated
+#                 for professional in results:
+#                     if professional.average_rating is None:
+#                         avg_rating = calculate_average_rating_for_professional(professional.id)
+#                         professional.average_rating = avg_rating if avg_rating is not None else 0.0
+
+#                 return marshal(results, service_professional_fields)
+
+#             return {'message': 'Invalid search parameters'}, 400
+
+#         except Exception as e:
+#             print(f"Search error: {str(e)}")
+#             return {'message': str(e)}, 500
 class SearchResource(Resource):
     @auth_required('token')
     def get(self):
@@ -887,6 +1053,7 @@ class SearchResource(Resource):
             pincode = request.args.get('pincode')
             rating = request.args.get('rating', '').strip()
             condition = request.args.get('condition')
+            service_id = request.args.get('service_id')  # Parameter for service filtering
 
             if not entity:
                 return {'message': 'Entity parameter is required'}, 400
@@ -906,48 +1073,187 @@ class SearchResource(Resource):
                 if not pincode:
                     return {'message': 'Pincode is required'}, 400
 
-                results = (
-                    base_query.filter(ServiceProfessional.pin_code == pincode)
-                    .with_entities(Service)
-                    .distinct()
-                    .all()
-                )
-                return marshal(results, service_fields)
+                # Start with the pincode filter
+                professionals_query = base_query.filter(ServiceProfessional.pin_code == pincode)
+
+                # If service_id is provided, add service filter
+                if service_id:
+                    professionals_query = (
+                        professionals_query
+                        .join(ProfessionalService, ProfessionalService.professional_id == ServiceProfessional.id)
+                        .filter(ProfessionalService.service_id == service_id)
+                    )
+
+                    # If rating filter is also provided
+                    if rating:
+                        try:
+                            rating_value = float(rating)
+                        except ValueError:
+                            return {'message': 'Invalid rating value. Must be a number.'}, 400
+
+                        if condition == 'high':
+                            professionals_query = professionals_query.filter(ServiceProfessional.average_rating >= rating_value)
+                        elif condition == 'low':
+                            professionals_query = professionals_query.filter(ServiceProfessional.average_rating <= rating_value)
+                        elif condition:  # If condition is provided but not 'high' or 'low'
+                            return {'message': 'Invalid condition. Use "high" or "low".'}, 400
+
+                    # Get all professionals matching the criteria
+                    professionals = professionals_query.all()
+
+                    # Calculate missing ratings
+                    for professional in professionals:
+                        if professional.average_rating is None:
+                            avg_rating = calculate_average_rating_for_professional(professional.id)
+                            professional.average_rating = avg_rating if avg_rating is not None else 0.0
+
+                    # Get the base service for default values
+                    base_service = Service.query.get(service_id)
+                    if not base_service:
+                        return {'message': 'Service not found'}, 404
+                    
+                    # Process professionals with custom service details
+                    results = []
+                    for professional in professionals:
+                        prof_dict = marshal(professional, service_professional_fields)
+                        
+                        # Get the professional's custom service details
+                        custom_services = ProfessionalService.query.filter_by(
+                            professional_id=professional.id,
+                            service_id=service_id
+                        ).all()
+                        
+                        # If no custom services or the custom fields are None, use base service values
+                        if not custom_services:
+                            # Create a default service based on the base service
+                            prof_dict['custom_services'] = [{
+                                'id': None,
+                                'custom_price': base_service.base_price,
+                                'custom_description': base_service.description,
+                                'custom_time_required': base_service.base_time_required
+                            }]
+                        else:
+                            # Process existing custom services
+                            prof_dict['custom_services'] = []
+                            for cs in custom_services:
+                                custom_service = {
+                                    'id': cs.id,
+                                    'custom_price': cs.custom_price if cs.custom_price is not None else base_service.base_price,
+                                    'custom_description': cs.custom_description if cs.custom_description else base_service.description,
+                                    'custom_time_required': cs.custom_time_required if cs.custom_time_required else base_service.base_time_required
+                                }
+                                prof_dict['custom_services'].append(custom_service)
+                        
+                        results.append(prof_dict)
+                    
+                    return results, 200
+                else:
+                    # No service_id, just return services available in that pincode
+                    results = (
+                        base_query.filter(ServiceProfessional.pin_code == pincode)
+                        .join(ProfessionalService, ProfessionalService.professional_id == ServiceProfessional.id)
+                        .join(Service, ProfessionalService.service_id == Service.id)
+                        .with_entities(Service)
+                        .distinct()
+                        .all()
+                    )
+                    return marshal(results, service_fields)
 
             elif entity == 'rating':
-                # ✅ If rating is empty, return all professionals
-                if not rating:
-                    results = base_query.all()
-                    return marshal(results, service_professional_fields)
-
-                # Convert rating to float if provided
+                # Build the query with rating filter
                 try:
-                    rating = float(rating)
+                    if rating:
+                        rating_value = float(rating)
+                    else:
+                        rating_value = None
                 except ValueError:
                     return {'message': 'Invalid rating value. Must be a number.'}, 400
 
-                # Apply rating condition filter
-                if condition == 'high':
-                    results = base_query.filter(ServiceProfessional.average_rating >= rating).all()
-                elif condition == 'low':
-                    results = base_query.filter(ServiceProfessional.average_rating <= rating).all()
-                else:
-                    return {'message': 'Invalid condition. Use "high" or "low".'}, 400
+                # Start with the base query
+                professionals_query = base_query
 
-                # ✅ Ensure professionals with missing average ratings are calculated
-                for professional in results:
+                # Add pincode filter if provided
+                if pincode:
+                    professionals_query = professionals_query.filter(ServiceProfessional.pin_code == pincode)
+
+                # Add service filter if provided
+                if service_id:
+                    professionals_query = (
+                        professionals_query
+                        .join(ProfessionalService, ProfessionalService.professional_id == ServiceProfessional.id)
+                        .filter(ProfessionalService.service_id == service_id)
+                    )
+
+                # Add rating filter if provided
+                if rating_value is not None:
+                    if condition == 'high':
+                        professionals_query = professionals_query.filter(ServiceProfessional.average_rating >= rating_value)
+                    elif condition == 'low':
+                        professionals_query = professionals_query.filter(ServiceProfessional.average_rating <= rating_value)
+                    else:
+                        return {'message': 'Invalid condition. Use "high" or "low".'}, 400
+
+                # Get all professionals matching the criteria
+                professionals = professionals_query.all()
+
+                # Calculate missing ratings
+                for professional in professionals:
                     if professional.average_rating is None:
                         avg_rating = calculate_average_rating_for_professional(professional.id)
                         professional.average_rating = avg_rating if avg_rating is not None else 0.0
 
-                return marshal(results, service_professional_fields)
+                # If service_id is provided, include custom service details
+                if service_id:
+                    # Get the base service for default values
+                    base_service = Service.query.get(service_id)
+                    if not base_service:
+                        return {'message': 'Service not found'}, 404
+                    
+                    # Process professionals with custom service details
+                    results = []
+                    for professional in professionals:
+                        prof_dict = marshal(professional, service_professional_fields)
+                        
+                        # Get the professional's custom service details
+                        custom_services = ProfessionalService.query.filter_by(
+                            professional_id=professional.id,
+                            service_id=service_id
+                        ).all()
+                        
+                        # If no custom services or the custom fields are None, use base service values
+                        if not custom_services:
+                            # Create a default service based on the base service
+                            prof_dict['custom_services'] = [{
+                                'id': None,
+                                'custom_price': base_service.base_price,
+                                'custom_description': base_service.description,
+                                'custom_time_required': base_service.base_time_required
+                            }]
+                        else:
+                            # Process existing custom services
+                            prof_dict['custom_services'] = []
+                            for cs in custom_services:
+                                custom_service = {
+                                    'id': cs.id,
+                                    'custom_price': cs.custom_price if cs.custom_price is not None else base_service.base_price,
+                                    'custom_description': cs.custom_description if cs.custom_description else base_service.description,
+                                    'custom_time_required': cs.custom_time_required if cs.custom_time_required else base_service.base_time_required
+                                }
+                                prof_dict['custom_services'].append(custom_service)
+                        
+                        results.append(prof_dict)
+                    
+                    return results, 200
+                else:
+                    # No service_id, just return professionals with rating filter
+                    return marshal(professionals, service_professional_fields)
 
             return {'message': 'Invalid search parameters'}, 400
 
         except Exception as e:
             print(f"Search error: {str(e)}")
             return {'message': str(e)}, 500
-
+        
 class PincodesResource(Resource):
     @auth_required('token')
     def get(self):
@@ -1680,7 +1986,7 @@ api.add_resource(ProfessionalServicesResource, '/professional/profile/<int:profe
 
 class CustomerProfileResource(Resource):
     @auth_required('token')
-    @marshal_with(customer_fields)  # Assuming you have a similar marshaller for customer
+    @marshal_with(customer_fields) 
     def get(self, customer_id):
         customer = Customer.query.get_or_404(customer_id)
         return customer
@@ -1722,7 +2028,7 @@ class CustomerProfileResource(Resource):
         if profile_pic:
             try:
                 upload_result = cloudinary.uploader.upload(profile_pic, folder="customer_profile_pic")
-                customer.profile_picture_url = upload_result['secure_url']
+                customer.profile_pic = upload_result['secure_url']
             except Exception as e:
                 print(f"Image upload failed: {str(e)}")
                 return {"error": "Image upload failed", "details": str(e)}, 500

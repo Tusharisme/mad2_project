@@ -4,91 +4,111 @@ export default {
     <h3 class="text-center my-4" style="text-decoration: underline;">Professionals for {{ service.name }}</h3>
 
     <div v-if="professionals.length > 0" class="row">
-      <div v-for="professional in professionals" :key="professional.id" class="col-md-4 mb-4">
-        <div class="card h-100 shadow-sm">
-          <div class="row g-0">
-            <div class="col-md-4">
-              <div class="img-container">
-                <img :src="professional.profile_pic || '/images/default-profile.jpg'" 
-                     :alt="professional.name" 
-                     class="img-fluid" 
-                     style="max-height: 150px; object-fit: cover;" />
-              </div>
+    <div v-for="professional in professionals" :key="professional.id" class="col-md-4 mb-4">
+      <div class="card h-100 shadow-sm">
+        <div class="row g-0">
+          <div class="col-md-4">
+            <div class="img-container">
+              <img :src="professional.profile_picture_url" 
+                   :alt="professional.name" 
+                   class="img-fluid" />
             </div>
-            <div class="col-md-8">
-              <div class="card-body">
-                <h5 class="card-title">{{ professional.name }}</h5>
-                <p class="card-text">Experience: {{ professional.experience }} years</p>
-                <p class="card-text">Phone No.: {{ professional.phone_no }}</p>
-
-                <!-- Iterate over custom services -->
-                <div v-if="professional.custom_services && professional.custom_services.length > 0">
-                  <div v-for="service in professional.custom_services" :key="service.id">
-                    <p class="card-text">Price: ₹ {{ service.custom_price }}</p>
-                    <p class="card-text">Description: {{ service.custom_description }}</p>
-                    <p class="card-text">Time Required: {{ service.custom_time_required }}</p>
-                  </div>
+          </div>
+          <div class="col-md-8">
+            <div class="card-body">
+              <h5 class="card-title">{{ professional.name }}</h5>
+              <p class="card-text"><i class="fas fa-briefcase me-2"></i>Experience: {{ professional.experience }} years</p>
+              <p class="card-text"><i class="fas fa-phone me-2"></i>Phone: {{ professional.phone_no }}</p>
+  
+              <!-- Iterate over custom services -->
+              <div v-if="professional.custom_services && professional.custom_services.length > 0" 
+                   class="custom-services">
+                <div v-for="service in professional.custom_services" :key="service.id">
+                  <p class="card-text"><strong>₹ {{ service.custom_price }}</strong></p>
+                  <p class="card-text">{{ service.custom_description }}</p>
+                  <p class="card-text"><i class="far fa-clock me-1"></i> {{ service.custom_time_required }}</p>
                 </div>
-                <p v-else class="card-text"><b>No custom services available.</b></p>
-
-                <!-- Booking Button -->
-                <button class="btn btn-info" @click="openBookingModal(professional)">
-                  Book Service
-                </button>
               </div>
+              <p v-else class="card-text no-services"><b>No custom services available.</b></p>
+  
+              <!-- Booking Button -->
+              <button class="btn btn-info w-100" @click="openBookingModal(professional)">
+                <i class="fas fa-calendar-check me-2"></i> Book Service
+              </button>
             </div>
           </div>
         </div>
       </div>
     </div>
+  </div>
 
     <!-- No Professionals Available -->
     <p v-else class="text-center"><b>No professionals available for this service.</b></p>
 
     <!-- Booking Modal -->
-    <div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalLabel" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content custom-modal">
-          <div class="modal-header">
-            <h5 class="modal-title" id="bookingModalLabel">Book Service</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+<div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalLabel" aria-hidden="true">
+<div class="modal-dialog modal-dialog-centered">
+  <div class="modal-content custom-modal">
+    <div class="modal-header">
+      <h5 class="modal-title" id="bookingModalLabel">Book Service</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    <div class="modal-body">
+      <form @submit.prevent="confirmBooking">
+        <!-- Hidden fields -->
+        <input type="hidden" v-if="selectedProfessional" v-model="selectedProfessional.id">
+        <input type="hidden" v-if="service.id" v-model="service.id">
+
+        <!-- Service details summary -->
+        <div class="mb-4 p-3" style="background-color: #f4eae1; border-radius: 10px;">
+          <h6 style="color: #8b4513; font-weight: 600;">Service Details</h6>
+          <p class="mb-1" v-if="selectedProfessional">Professional: <span class="fw-bold">{{ selectedProfessional.name }}</span></p>
+          <p class="mb-1" v-if="service">Service: <span class="fw-bold">{{ service.title }}</span></p>
+          <p class="mb-1" v-if="selectedProfessional">Amount: <span class="fw-bold text-success">₹{{ selectedProfessional ? selectedProfessional.custom_services[0].custom_price : 0 }}</span></p>
+        </div>
+
+        <!-- Date and time selection -->
+        <div class="row mb-3">
+          <div class="col-md-6 mb-3 mb-md-0">
+            <label for="serviceDate" class="form-label">Select Date</label>
+            <input type="date" class="form-control" id="serviceDate" v-model="bookingDate" required>
           </div>
-          <div class="modal-body">
-            <form @submit.prevent="confirmBooking">
-              <!-- Ensure v-if checks for null before binding id -->
-              <input type="hidden" v-if="selectedProfessional" v-model="selectedProfessional.id">
-              <input type="hidden" v-if="service.id" v-model="service.id">
-
-              <div class="mb-3">
-                <label for="serviceDate" class="form-label">Select Date</label>
-                <input type="date" class="form-control" v-model="bookingDate" required>
-              </div>
-              <div class="mb-3">
-                <label for="serviceTime" class="form-label">Select Time</label>
-                <input type="time" class="form-control" v-model="bookingTime" required>
-              </div>
-
-              <p>Please confirm the payment amount:</p>
-              <p>Amount: ₹{{ selectedProfessional ? selectedProfessional.custom_services[0].custom_price : 0 }}</p>
-
-              <div class="mb-3">
-                <label for="cardNumber" class="form-label">Card Number</label>
-                <input type="text" class="form-control" v-model="cardNumber" maxlength="16" required>
-              </div>
-              <div class="mb-3">
-                <label for="expirationDate" class="form-label">Expiration Date</label>
-                <input type="text" class="form-control" v-model="expirationDate" placeholder="MM/YY" maxlength="5" required>
-              </div>
-              <div class="mb-3">
-                <label for="cvv" class="form-label">CVV</label>
-                <input type="text" class="form-control" v-model="cvv" maxlength="3" required>
-              </div>
-              <button type="submit" class="btn btn-primary">Confirm Booking</button>
-            </form>
+          <div class="col-md-6">
+            <label for="serviceTime" class="form-label">Select Time</label>
+            <input type="time" class="form-control" id="serviceTime" v-model="bookingTime" required>
           </div>
         </div>
-      </div>
-      </div>
+
+        <!-- Payment section -->
+        <div class="mt-4 mb-3">
+          <h6 style="color: #8b4513; font-weight: 600;">Payment Information</h6>
+        </div>
+        
+        <div class="mb-3">
+          <label for="cardNumber" class="form-label">Card Number</label>
+          <input type="text" class="form-control" id="cardNumber" v-model="cardNumber" maxlength="16" placeholder="1234 5678 9012 3456" required>
+        </div>
+        
+        <div class="row mb-3">
+          <div class="col-md-6 mb-3 mb-md-0">
+            <label for="expirationDate" class="form-label">Expiration Date</label>
+            <input type="text" class="form-control" id="expirationDate" v-model="expirationDate" placeholder="MM/YY" maxlength="5" required>
+          </div>
+          <div class="col-md-6">
+            <label for="cvv" class="form-label">CVV</label>
+            <input type="text" class="form-control" id="cvv" v-model="cvv" placeholder="123" maxlength="3" required>
+          </div>
+        </div>
+        
+        <div class="text-center mt-4">
+          <button type="submit" class="btn btn-custom">Confirm Booking</button>
+          <button type="button" class="btn btn-outline-secondary ms-2" data-bs-dismiss="modal">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+</div>
   </div>
   `,
   data() {

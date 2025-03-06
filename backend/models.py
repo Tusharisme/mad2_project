@@ -48,8 +48,6 @@ class Customer(db.Model):
     profile_pic = db.Column(db.String(255), nullable=True)
     average_rating = db.Column(db.Float, nullable=True)
     is_blocked = db.Column(db.Boolean, default=False)
-    profile_picture_url = db.Column(db.String(500), nullable=True)  # Profile picture URL
-
 
     # Relationship back to User
     user = db.relationship("User", back_populates="customer")

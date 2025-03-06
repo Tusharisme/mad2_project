@@ -155,51 +155,62 @@ export default {
       {{ statusMessage }}
     </div>
 
-    <div v-if="!statusMessage" class="container mt-4">
-      <h3 class="text-center mb-4" style="text-decoration: underline;">Explore Our Services</h3>
-      <div class="row">
-        <div v-for="service in services" :key="service.id" class="col-md-4 mb-4">
-          <div class="card h-100 shadow-sm">
-            <div class="card-body text-center">
-              <img 
-                :src="service.image" 
-                :alt="service.title" 
-                class="card-img-top mb-3" 
-                style="max-height: 150px; object-fit: cover;" 
-              />
-              <h5 class="card-title">{{ service.title }}</h5>
-              <p class="card-text">{{ service.description }}</p>
-              <p class="text-muted">Starting at \₹{{ service.basePrice }}</p>
-              <button 
-                class="btn btn-primary btn-sm mt-3" 
-                @click="viewProfessionals(service.id)"
-              >
-                Explore Services
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div v-if="!statusMessage" class="container mt-5">
+    <div class="header-section">
+      <h3>Explore Our Services</h3>
     </div>
-
-    <!-- Customer Testimonials Section -->
-    <div class="container mt-5">
-      <h3 class="text-center mb-4" style="text-decoration: underline;">What Our Customers Say</h3>
-      <div class="row">
-        <div v-for="testimonial in testimonials" :key="testimonial.name" class="col-md-4 mb-4">
-          <div class="card h-100 shadow-sm">
-            <div class="card-body">
-              <p class="card-text">
-                <i class="fas fa-quote-left"></i> {{ testimonial.feedback }} <i class="fas fa-quote-right"></i>
-              </p>
-              <h6 class="card-title mt-3 text-end">- {{ testimonial.name }}</h6>
-              <p class="text-end text-muted">{{ testimonial.location }}</p>
-            </div>
+    <div class="row">
+      <div v-for="service in services" :key="service.id" class="col-md-4 mb-4">
+        <div class="card h-100">
+          <div class="img-container">
+            <img 
+              :src="service.image" 
+              :alt="service.title" 
+              class="card-img-top" 
+            />
+          </div>
+          <div class="card-body text-center">
+            <h5 class="card-title">{{ service.title }}</h5>
+            <p class="card-text">{{ service.description }}</p>
+            <p class="card-text fw-bold">Starting at ₹{{ service.basePrice }}</p>
+            <button 
+              class="btn btn-custom mt-2" 
+              @click="viewProfessionals(service.id)"
+            >
+              Explore Services
+            </button>
           </div>
         </div>
       </div>
     </div>
   </div>
+
+<!-- Customer Testimonials Section -->
+<div class="container mt-5">
+  <div class="header-section">
+    <h3>What Our Customers Say</h3>
+  </div>
+  <div class="row">
+    <div v-for="testimonial in testimonials" :key="testimonial.name" class="col-md-4 mb-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <div style="background-color: #f4eae1; border-radius: 8px; padding: 15px;">
+            <p class="card-text">
+              <i class="fas fa-quote-left" style="color: #8b4513; margin-right: 5px;"></i>
+              {{ testimonial.feedback }}
+              <i class="fas fa-quote-right" style="color: #8b4513; margin-left: 5px;"></i>
+            </p>
+          </div>
+          <div class="mt-3 text-end">
+            <h6 class="card-title mb-1" style="color: #8b4513; font-weight: 600;">- {{ testimonial.name }}</h6>
+            <p class="text-muted" style="font-size: 0.9rem;">{{ testimonial.location }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
   `,
 
   data() {

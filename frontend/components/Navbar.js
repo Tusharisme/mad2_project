@@ -10,7 +10,7 @@ export default {
         @mouseleave="dropdownVisible = false"
       >
         <button
-          class="btn btn-light dropdown-toggle"
+          class="btn btn-custom dropdown-toggle"
           type="button"
           id="adminActions"
           aria-expanded="false"
@@ -19,7 +19,6 @@ export default {
           <i class="fa-solid fa-bars"></i>
         </button>
         <ul class="dropdown-menu" aria-labelledby="adminActions">
-          <!-- Hide Dashboard option if already on /admin_dashboard -->
           <router-link 
             v-if="$route.path !== '/admin_dashboard'"
             class="dropdown-item" 
@@ -39,7 +38,7 @@ export default {
         @mouseleave="dropdownVisible = false"
       >
         <button
-          class="btn btn-light dropdown-toggle"
+          class="btn btn-custom dropdown-toggle"
           type="button"
           id="customerActions"
           aria-expanded="false"
@@ -48,7 +47,6 @@ export default {
           <i class="fa-solid fa-bars"></i>
         </button>
         <ul class="dropdown-menu" aria-labelledby="customerActions">
-          <!-- Hide Dashboard option if already on /customer_dashboard -->
           <router-link 
             v-if="$route.path !== '/customer_dashboard'"
             class="dropdown-item" 
@@ -69,7 +67,7 @@ export default {
         @mouseleave="dropdownVisible = false"
       >
         <button
-          class="btn btn-light dropdown-toggle"
+          class="btn btn-custom dropdown-toggle"
           type="button"
           id="professionalActions"
           aria-expanded="false"
@@ -78,7 +76,6 @@ export default {
           <i class="fa-solid fa-bars"></i>
         </button>
         <ul class="dropdown-menu" aria-labelledby="professionalActions">
-          <!-- Hide Dashboard option if already on /professional_dashboard -->
           <router-link 
             v-if="$route.path !== '/professional_dashboard'"
             class="dropdown-item" 
@@ -91,8 +88,8 @@ export default {
       </div>
 
       <!-- Navbar Brand -->
-      <a class="navbar-brand" href="/" style="color: black;">
-        <b>A to Z Household Services</b>
+      <a class="navbar-brand" href="/" style="color: #8b4513; font-weight: 700; letter-spacing: 0.5px;">
+        A to Z Household Services
       </a>
 
       <!-- Toggler for Mobile View -->
@@ -111,19 +108,39 @@ export default {
       <!-- Navbar Links -->
       <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
         <ul class="navbar-nav">
-          <!-- Visible based on user login status -->
+          <!-- Home link for all visitors -->
+          <li class="nav-item">
+            <router-link to="/" class="nav-link">
+              <i class="fas fa-home me-1"></i> Home
+            </router-link>
+          </li>
+          
+          <!-- Services link for all visitors -->
+          <li class="nav-item">
+            <router-link to="/services" class="nav-link">
+              <i class="fas fa-concierge-bell me-1"></i> Services
+            </router-link>
+          </li>
+          
+          <!-- Auth links -->
           <li class="nav-item" v-if="!$store.state.loggedIn">
-            <router-link to="/login" class="nav-link"><b>Login</b></router-link>
+            <router-link to="/login" class="nav-link">
+              <i class="fas fa-sign-in-alt me-1"></i> Login
+            </router-link>
           </li>
           <li class="nav-item" v-if="!$store.state.loggedIn">
-            <router-link to="/register_customer" class="nav-link"><b>Sign Up</b></router-link>
+            <router-link to="/register_customer" class="nav-link">
+              <i class="fas fa-user-plus me-1"></i> Sign Up
+            </router-link>
           </li>
           <li class="nav-item" v-if="!$store.state.loggedIn">
-            <router-link to="/register_professional" class="nav-link"><b>Register as Professional</b></router-link>
+            <router-link to="/register_professional" class="nav-link btn btn-custom btn-sm ms-2 py-1">
+              Register as Professional
+            </router-link>
           </li>
           <li class="nav-item" v-if="$store.state.loggedIn">
-            <button class="btn btn-secondary nav-link" @click="$store.commit('logout')">
-              Logout
+            <button class="btn btn-custom-outline nav-link" @click="$store.commit('logout')">
+              <i class="fas fa-sign-out-alt me-1"></i> Logout
             </button>
           </li>
         </ul>
