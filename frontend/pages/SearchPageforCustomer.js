@@ -111,11 +111,11 @@ export default {
         </div>
         
         <!-- No Results Message -->
-<div v-if="searchResults.length === 0 && hasSearched" class="no-results text-center py-5">
-  <img src="../assets/no_results_found.svg" alt="No results" class="no-results-img mb-3" style="max-width: 150px;">
-  <h4>No services found</h4>
-  <p class="text-muted">Try adjusting your search criteria</p>
-</div>
+        <div v-if="searchResults.length === 0 && hasSearched" class="no-results text-center py-5">
+          <i class="fas fa-search fa-5x mb-3" style="color: #8b4513; opacity: 0.7;"></i>
+          <h4>No services found</h4>
+          <p class="text-muted">Try adjusting your search criteria</p>
+        </div>
         
         <!-- Results Grid -->
         <div class="row g-4">
@@ -161,7 +161,7 @@ export default {
             <div class="professional-card">
               <div class="professional-image">
                 <img 
-                  :src="professional.profile_picture_url || '/images/default-profile.jpg'" 
+                  :src="professional.profile_picture_url" 
                   :alt="professional.name" 
                   class="img-fluid" 
                 />
@@ -299,7 +299,7 @@ export default {
       hasSearched: false,
       selectedService: null,
       showAdditionalFilters: false,
-      
+
       // Booking related data
       selectedProfessionalForBooking: null,
       bookingDate: "",
@@ -488,14 +488,14 @@ export default {
     // Booking Modal Methods
     openBookingModal(professional) {
       this.selectedProfessionalForBooking = professional;
-      
+
       // Reset booking form
       this.bookingDate = "";
       this.bookingTime = "";
       this.cardNumber = "";
       this.expirationDate = "";
       this.cvv = "";
-      
+
       // Show the modal using Bootstrap's modal API
       const myModal = new window.bootstrap.Modal(
         document.getElementById("bookingModal")
@@ -505,7 +505,7 @@ export default {
     async confirmBooking() {
       try {
         const customerId = this.$store.state.customer.id;
-        
+
         // Check if customer is blocked
         const customerResponse = await fetch(`/api/customers/${customerId}`, {
           headers: {
@@ -528,7 +528,7 @@ export default {
           requested_date: this.bookingDate,
           requested_time: this.bookingTime,
         };
-        
+
         const response = await fetch(`${location.origin}/api/book-service`, {
           method: "POST",
           headers: {
@@ -542,13 +542,13 @@ export default {
           const result = await response.json();
           console.log("Booking confirmed:", result);
           alert("Service request created successfully!");
-          
+
           // Close the modal
           const modal = bootstrap.Modal.getInstance(
             document.getElementById("bookingModal")
           );
           modal.hide();
-          
+
           // Optionally redirect to customer dashboard
           this.$router.push("/customer_dashboard");
         } else {
