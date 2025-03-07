@@ -1085,3 +1085,205 @@ canvas#requestsChart {
     font-size: 0.75rem;
   }
 }
+
+/* Chart Styling Fixes */
+.charts-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 30px 0;
+}
+
+.chart-container {
+  width: 100%; /* Change from 32% to 100% */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #fff;
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  min-height: 450px; /* Add minimum height */
+  margin-bottom: 30px;
+}
+
+.chart-container canvas {
+  width: 100% !important;
+  height: 400px !important; /* Set fixed height */
+}
+
+/* Specific chart adjustments */
+canvas#requestsChart {
+  max-width: 500px; /* Set max-width for doughnut */
+  margin: 0 auto;
+  height: 400px !important;
+}
+
+canvas#topServicesChart,
+canvas#ratingsChart,
+canvas#pincodeChart,
+canvas#trendsChart {
+  width: 100% !important;
+  height: 400px !important;
+}
+
+.chart-title {
+  text-align: center;
+  margin-top: 15px;
+  font-weight: bold;
+  color: #8b4513;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 992px) {
+  .chart-container {
+    width: 100%;
+  }
+
+  canvas#requestsChart {
+    max-width: 400px;
+  }
+}
+
+@media (max-width: 768px) {
+  .chart-container {
+    min-height: 400px;
+  }
+
+  .chart-container canvas {
+    height: 350px !important;
+  }
+
+  canvas#requestsChart {
+    max-width: 350px;
+  }
+}
+
+@media (max-width: 576px) {
+  .chart-container {
+    min-height: 350px;
+    padding: 15px;
+  }
+
+  .chart-container canvas {
+    height: 300px !important;
+  }
+
+  canvas#requestsChart {
+    max-width: 300px;
+  }
+}
+
+/* Admin Search Styles */
+
+/* Page title */
+.page-title {
+  color: #3a3a3a;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+}
+
+/* Search form */
+.search-form {
+  background-color: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  margin-bottom: 2rem;
+}
+
+/* Custom selects and inputs */
+.custom-select,
+.custom-input {
+  border: 1px solid #ced4da;
+  border-radius: 0.25rem;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.custom-select:focus,
+.custom-input:focus {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Custom button */
+.custom-btn {
+  background-color: #0d6efd;
+  border: none;
+  border-radius: 0.25rem;
+  color: white;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.custom-btn:hover {
+  background-color: #0b5ed7;
+}
+
+/* Result cards */
+.result-card {
+  border: none;
+  border-radius: 0.5rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.result-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+/* No results message */
+.no-results {
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Modal styling */
+.custom-modal {
+  border: none;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.custom-modal-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+/* Action buttons */
+.action-btn {
+  font-weight: 500;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.25rem;
+}
+
+/* Document link */
+.document-link {
+  color: #0d6efd;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.document-link:hover {
+  text-decoration: underline;
+}
+
+/* Status badges */
+.badge {
+  font-weight: 500;
+  padding: 0.35em 0.65em;
+  border-radius: 0.25rem;
+}
+
+.professional-count-badge {
+  background-color: #8b4513; /* Dark Brown */
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: inline-block;
+  min-width: 40px; /* Ensures visibility */
+  text-align: center;
+}

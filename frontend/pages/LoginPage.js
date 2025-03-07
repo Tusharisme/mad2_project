@@ -1,37 +1,84 @@
 export default {
   template: `
-    <div id="container">
-      <div class="header-section text-center">
-        <router-link to="/" class="navbar-brand" style="color: black;">
-          <h3 style="text-decoration: underline;">A to Z Household Services</h3>
-        </router-link>
-      </div>
-      <div id="panel">
-        <div id="input-form">
-          <h2 style="text-decoration: underline;">Login</h2>
-          <form @submit.prevent="submitLogin">
-            <div class="mb-3">
-              <label for="email" class="form-label" style="text-decoration: underline;"><b>Registered Email ID</b></label>
-              <input type="email" class="form-control" v-model="email" id="email" aria-describedby="emailHelp" autocomplete="email" 
- />
+    <div class="container mt-5 mb-5">
+      <div class="row justify-content-center">
+        <div class="col-md-6">
+          <div class="card shadow-lg border-0">
+            <div class="card-header bg-gradient-light text-center py-3">
+              <router-link to="/" class="text-decoration-none">
+                <h3 class="mb-0 text-dark fw-bold">A to Z Household Services</h3>
+              </router-link>
             </div>
-            <div class="mb-3">
-              <label for="pwd" class="form-label" style="text-decoration: underline;"><b>Password</b></label>
-              <input type="password" v-model="password" class="form-control" id="pwd" autocomplete="current-password" 
-/>
+            <div class="card-body p-4">
+              <h2 class="text-center mb-4 fw-bold">Login</h2>
+              
+              <form @submit.prevent="submitLogin" class="needs-validation" novalidate>
+                <div class="mb-3">
+                  <label for="email" class="form-label fw-semibold">
+                    <i class="fas fa-envelope me-2"></i>Email Address
+                  </label>
+                  <input 
+                    type="email" 
+                    class="form-control" 
+                    id="email" 
+                    v-model="email" 
+                    required
+                    :class="{'is-invalid': !isValidEmail(email) && email}"
+                    autocomplete="email"
+                  >
+                  <div class="invalid-feedback">
+                    Please provide a valid email address.
+                  </div>
+                </div>
+                
+                <div class="mb-3">
+                  <label for="pwd" class="form-label fw-semibold">
+                    <i class="fas fa-lock me-2"></i>Password
+                  </label>
+                  <input 
+                    type="password" 
+                    class="form-control" 
+                    id="pwd" 
+                    v-model="password" 
+                    required
+                    :class="{'is-invalid': !password && password !== undefined}"
+                    autocomplete="current-password"
+                  >
+                  <div class="invalid-feedback">
+                    Please enter your password.
+                  </div>
+                </div>
+                
+                <div class="alert alert-danger" v-if="error" role="alert">
+                  <i class="fas fa-exclamation-circle me-2"></i>{{ error }}
+                </div>
+                
+                <div class="d-grid gap-2 mb-3">
+                  <button type="submit" class="btn btn-success-custom btn-lg">
+                    <i class="fas fa-sign-in-alt me-2"></i>Login
+                  </button>
+                </div>
+                
+                <div class="text-center">
+                  <router-link to="/forgot_password" class="text-decoration-none fw-bold">
+                    <i class="fas fa-key me-1"></i>Forgot Password?
+                  </router-link>
+                </div>
+              </form>
             </div>
-            <button type="submit" class="btn btn-success-custom">Login</button><br /><br />
-            <router-link to="/register_customer" class="btn btn-link"><b>Create Account?</b></router-link>
-          </form>
-
-          <div v-if="error" class="alert alert-danger mt-3" role="alert">
-            <b>{{ error }}</b>
+            <div class="card-footer bg-light p-3 text-center">
+              <p class="mb-2">Don't have an account?</p>
+              <div class="d-flex justify-content-center gap-3">
+                <router-link to="/register_customer" class="btn btn-outline-success">
+                  <i class="fas fa-user me-2"></i>Register as Customer
+                </router-link>
+                <router-link to="/register_professional" class="btn btn-outline-primary">
+                  <i class="fas fa-briefcase me-2"></i>Register as Professional
+                </router-link>
+              </div>
+            </div>
           </div>
         </div>
-
-        <br /><br />
-        <router-link to="/register_professional" class="btn btn-link"><b>Register as Professional</b></router-link>
-        <router-link to="/forgot_password" class="btn btn-link"><b>Forgot Password?</b></router-link>
       </div>
     </div>
   `,
@@ -45,6 +92,11 @@ export default {
   methods: {
     async submitLogin() {
       try {
+        if (!this.isValidEmail(this.email) || !this.password) {
+          this.error = "Please provide valid email and password";
+          return;
+        }
+
         const body = JSON.stringify({
           email: this.email,
           password: this.password,
@@ -80,6 +132,10 @@ export default {
         this.error = "An error occurred during login";
         console.error("An error occurred:", e);
       }
+    },
+    isValidEmail(email) {
+      const re = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;
+      return re.test(email);
     },
   },
 };

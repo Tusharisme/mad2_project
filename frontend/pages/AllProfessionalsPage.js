@@ -1,57 +1,77 @@
 export default {
   template: `
-  <div id="all-professionals-page" class="container">
-    <h2 class="text-center">All Professionals</h2>
-    <div v-if="professionals.length > 0" class="mt-3">
-      <table class="table table-bordered table-hover table-custom">
-        <thead class="table-dark-custom">
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Verified Status</th>
-            <th>Blocked Status</th>
-            <th>Experience (Years)</th>
-            <th>Average Rating</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="professional in professionals" :key="professional.id">
-            <td>
-              <a :href="'/professional_details/' + professional.id">{{ professional.id }}</a>
-            </td>
-            <td>{{ professional.name }}</td>
-            <td>{{ professional.verified_status }}</td>
-            <td>{{ professional.block_status ? 'Blocked' : 'Not Blocked' }}</td>
-            <td>{{ professional.experience }}</td>
-            <td>{{ professional.average_rating || 'N/A' }}</td>
-            <td>
-              <template v-if="professional.verified_status === 'approved'">
-                <button class="btn btn-danger-custom" @click="blockProfessional(professional.id)">
-                  Block
-                </button>
-                <button class="btn btn-success-custom" @click="unblockProfessional(professional.id)">
-                  Unblock
-                </button>
-              </template>
-              <template v-else>
-                <button class="btn btn-success-custom" @click="openModal(professional.id, 'approve')">
-                  Approve
-                </button>
-                <button class="btn btn-warning" @click="openModal(professional.id, 'reject')">
-                  Reject
-                </button>
-              </template>
-              <button class="btn btn-danger-custom" @click="deleteProfessional(professional.id)">
-                Delete
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+  <div id="all-professionals-page" class="container mt-5">
+    <div class="header-section mb-4">
+      <h2 class="text-center">All Professionals</h2>
     </div>
-    <div v-else class="mt-3">
-      <p>No professionals available.</p>
+    
+    <div class="card table-custom-card">
+      <div v-if="professionals.length > 0" class="table-responsive">
+        <table class="table table-bordered table-hover table-custom">
+          <thead class="table-dark-custom">
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Verified Status</th>
+              <th>Blocked Status</th>
+              <th>Experience (Years)</th>
+              <th>Average Rating</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="professional in professionals" :key="professional.id">
+              <td>
+                <a :href="'/professional_details/' + professional.id" class="professional-link">{{ professional.id }}</a>
+              </td>
+              <td>{{ professional.name }}</td>
+              <td>
+                <span :class="getStatusBadgeClass(professional.verified_status)">
+                  {{ professional.verified_status }}
+                </span>
+              </td>
+              <td>
+                <span :class="getBlockStatusBadgeClass(professional.block_status)">
+                  {{ professional.block_status ? 'Blocked' : 'Not Blocked' }}
+                </span>
+              </td>
+              <td>{{ professional.experience }}</td>
+              <td>
+                <div v-if="professional.average_rating" class="professional-rating">
+                  <span class="stars">★</span>
+                  <span>{{ professional.average_rating }}</span>
+                </div>
+                <span v-else>N/A</span>
+              </td>
+              <td class="action-buttons">
+                <template v-if="professional.verified_status === 'approved'">
+                  <button class="btn btn-danger-custom btn-sm me-1" @click="blockProfessional(professional.id)">
+                    <i class="fas fa-ban me-1"></i> Block
+                  </button>
+                  <button class="btn btn-success-custom btn-sm me-1" @click="unblockProfessional(professional.id)">
+                    <i class="fas fa-unlock me-1"></i> Unblock
+                  </button>
+                </template>
+                <template v-else>
+                  <button class="btn btn-success-custom btn-sm me-1" @click="openModal(professional.id, 'approve')">
+                    <i class="fas fa-check-circle me-1"></i> Approve
+                  </button>
+                  <button class="btn btn-warning btn-sm me-1" @click="openModal(professional.id, 'reject')">
+                    <i class="fas fa-times-circle me-1"></i> Reject
+                  </button>
+                </template>
+                <button class="btn btn-danger-custom btn-sm" @click="deleteProfessional(professional.id)">
+                  <i class="fas fa-trash-alt me-1"></i> Delete
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div v-else class="empty-state">
+        <p><i class="fas fa-user-slash me-2"></i> No professionals available.</p>
+      </div>
     </div>
 
     <!-- Approve/Reject Modal -->
@@ -59,27 +79,35 @@ export default {
       <div class="modal-dialog">
         <div class="modal-content custom-modal">
           <div class="modal-header">
-            <h5 class="modal-title">Professional Approval/Rejection</h5>
+            <h5 class="modal-title">
+              <i :class="currentAction === 'approve' ? 'fas fa-check-circle text-success me-2' : 'fas fa-times-circle text-warning me-2'"></i>
+              Professional {{ currentAction === 'approve' ? 'Approval' : 'Rejection' }}
+            </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
-            <p><b>Professional Name:</b> {{ modalData.name }}</p>
-            <p><b>Experience:</b> {{ modalData.experience }} years</p>
-            <p><b>Service:</b> {{ modalData.service }}</p>
-            <p><b>Address:</b> {{ modalData.address }}</p>
-            <p><b>Pincode:</b> {{ modalData.pincode }}</p>
-            <!-- Document URL -->
-        <p><strong>Document:</strong> 
-        <span v-if="modalData.document_url">
-          <a :href="modalData.document_url" target="_blank" rel="noopener noreferrer">View Document</a>
-        </span>
-        <span v-else>N/A</span>
-      </p>
+            <div class="professional-info-card p-3 mb-3 rounded">
+              <p><b><i class="fas fa-user me-2"></i>Professional Name:</b> {{ modalData.name }}</p>
+              <p><b><i class="fas fa-briefcase me-2"></i>Experience:</b> {{ modalData.experience }} years</p>
+              <p><b><i class="fas fa-tools me-2"></i>Service:</b> {{ modalData.service }}</p>
+              <p><b><i class="fas fa-map-marker-alt me-2"></i>Address:</b> {{ modalData.address }}</p>
+              <p><b><i class="fas fa-map-pin me-2"></i>Pincode:</b> {{ modalData.pincode }}</p>
+              <p><b><i class="fas fa-file-alt me-2"></i>Document:</b> 
+                <span v-if="modalData.document_url">
+                  <a :href="modalData.document_url" target="_blank" rel="noopener noreferrer" class="document-link">
+                    <i class="fas fa-external-link-alt me-1"></i> View Document
+                  </a>
+                </span>
+                <span v-else>N/A</span>
+              </p>
+            </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+              <i class="fas fa-times me-1"></i> Close
+            </button>
             <button class="btn btn-custom" @click="submitApprovalReject">
-              Confirm
+              <i class="fas fa-check me-1"></i> Confirm {{ currentAction }}
             </button>
           </div>
         </div>
@@ -98,6 +126,7 @@ export default {
         service: "",
         address: "",
         pincode: "",
+        document_url: null,
       },
     };
   },
@@ -105,6 +134,21 @@ export default {
     this.fetchProfessionals();
   },
   methods: {
+    getStatusBadgeClass(status) {
+      switch (status) {
+        case "approved":
+          return "status-badge completed";
+        case "pending":
+          return "status-badge pending";
+        case "rejected":
+          return "status-badge rejected";
+        default:
+          return "status-badge";
+      }
+    },
+    getBlockStatusBadgeClass(isBlocked) {
+      return isBlocked ? "status-badge rejected" : "status-badge completed";
+    },
     async fetchProfessionals() {
       try {
         const token = this.$store.state.auth_token;
@@ -193,7 +237,7 @@ export default {
           service: data.service_type,
           address: data.address,
           pincode: data.pin_code,
-          document_url: data.document_url || null, // Add this line
+          document_url: data.document_url || null,
         };
 
         new bootstrap.Modal(
