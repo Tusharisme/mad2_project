@@ -1,4 +1,4 @@
-from datetime import datetime, timezone,date
+from datetime import datetime, timezone, date
 import cloudinary
 from flask_login import current_user
 from flask_restful import Resource, Api, fields, marshal, marshal_with
@@ -7,101 +7,110 @@ from backend.models import *
 from flask import Response, abort, current_app as app, request, jsonify, session
 from flask_security import auth_required, hash_password
 from sqlalchemy.orm import joinedload
-from backend.utils import calculate_average_rating_for_customer, calculate_average_rating_for_professional
+from backend.utils import (
+    calculate_average_rating_for_customer,
+    calculate_average_rating_for_professional,
+)
 
 
-api = Api(prefix='/api')
-cache=app.cache
+api = Api(prefix="/api")
+cache = app.cache
 
 from datetime import datetime
 
+
 def format_datetime(value):
-    return value.strftime('%Y-%m-%d %H:%M:%S') if isinstance(value, datetime) else "N/A"
+    return value.strftime("%Y-%m-%d %H:%M:%S") if isinstance(value, datetime) else "N/A"
+
 
 # Define the fields for marshalling the Customer data
 customer_fields = {
-    'id': fields.Integer,
-    'username': fields.String(attribute='user.username'),  # ✅ Explicitly link to User model
-    'name': fields.String,
-    'email': fields.String,
-    'address': fields.String,
-    'pin_code': fields.String,
-    'phone_no': fields.Integer,
-    'gender': fields.String,
-    'profile_pic': fields.String,
-    'average_rating': fields.Float,
-    'is_blocked': fields.Boolean,
+    "id": fields.Integer,
+    "username": fields.String(
+        attribute="user.username"
+    ),  # ✅ Explicitly link to User model
+    "name": fields.String,
+    "email": fields.String,
+    "address": fields.String,
+    "pin_code": fields.String,
+    "phone_no": fields.Integer,
+    "gender": fields.String,
+    "profile_pic": fields.String,
+    "average_rating": fields.Float,
+    "is_blocked": fields.Boolean,
 }
 # Fields for ProfessionalService
 professional_service_fields = {
-    'id': fields.Integer,
-    'service_id': fields.Integer,
-    'custom_price': fields.Integer,
-    'custom_description': fields.String,
-    'custom_time_required': fields.String,
+    "id": fields.Integer,
+    "service_id": fields.Integer,
+    "custom_price": fields.Integer,
+    "custom_description": fields.String,
+    "custom_time_required": fields.String,
 }
 # Define the fields for marshalling the Service Professional data
 service_professional_fields = {
-    'id': fields.Integer,
-    'username': fields.String(attribute='user.username'),
-    'name': fields.String,
-    'service_type': fields.String,
-    'experience': fields.Integer,
-    'phone_no': fields.Integer,
-    'email': fields.String,
-    'address': fields.String,
-    'pin_code': fields.String,
-    'verified_status': fields.String,
-    'gender': fields.String,
-    'profile_picture_url': fields.String,
-    'average_rating': fields.Float,
-    'document_url': fields.String,
-    'block_status': fields.Boolean,
-    'custom_services': fields.List(fields.Nested(professional_service_fields)),
+    "id": fields.Integer,
+    "username": fields.String(attribute="user.username"),
+    "name": fields.String,
+    "service_type": fields.String,
+    "experience": fields.Integer,
+    "phone_no": fields.Integer,
+    "email": fields.String,
+    "address": fields.String,
+    "pin_code": fields.String,
+    "verified_status": fields.String,
+    "gender": fields.String,
+    "profile_picture_url": fields.String,
+    "average_rating": fields.Float,
+    "document_url": fields.String,
+    "block_status": fields.Boolean,
+    "custom_services": fields.List(fields.Nested(professional_service_fields)),
 }
 
 # Define the fields for marshalling the Service data
 service_fields = {
-    'id': fields.Integer,
-    'name': fields.String,
-    'base_price': fields.Integer,
-    'base_time_required': fields.String,
-    'description': fields.String,
-    'image_url': fields.String,
-    'average_rating': fields.Float
-
+    "id": fields.Integer,
+    "name": fields.String,
+    "base_price": fields.Integer,
+    "base_time_required": fields.String,
+    "description": fields.String,
+    "image_url": fields.String,
+    "average_rating": fields.Float,
 }
 
 # Define a field structure for marshalling service request data
 service_request_fields = {
-    'id': fields.Integer,
-    'service_id': fields.Integer,
-    'customer_id': fields.Integer,
-    'professional_id': fields.Integer,
-    'service_status': fields.String,
-    'date_of_request': fields.String,
-    'date_of_completion': fields.String,
+    "id": fields.Integer,
+    "service_id": fields.Integer,
+    "customer_id": fields.Integer,
+    "professional_id": fields.Integer,
+    "service_status": fields.String,
+    "date_of_request": fields.String,
+    "date_of_completion": fields.String,
     # 'date_of_request': fields.FormattedString(lambda sr: format_datetime(sr.date_of_request)),
     # 'date_of_completion': fields.FormattedString(lambda sr: format_datetime(sr.date_of_completion)),
-    'remarks': fields.String,
-    'rating': fields.Integer,
-    'customer_rating': fields.Integer,
-    'customer_remarks': fields.String,
-    'requested_date': fields.String,
-    'requested_time': fields.String,
-    'customer': fields.Nested(customer_fields),  # Add nested customer details
-    'service': fields.Nested(service_fields),    # Add nested service details
-    'professional': fields.Nested(service_professional_fields),  # ✅ Add professional details
-
+    "remarks": fields.String,
+    "rating": fields.Integer,
+    "customer_rating": fields.Integer,
+    "customer_remarks": fields.String,
+    "requested_date": fields.String,
+    "requested_time": fields.String,
+    "customer": fields.Nested(customer_fields),  # Add nested customer details
+    "service": fields.Nested(service_fields),  # Add nested service details
+    "professional": fields.Nested(
+        service_professional_fields
+    ),  # ✅ Add professional details
 }
 
 # Extend professional_service_fields to include service details
 professional_service_with_details = {
     **professional_service_fields,
-    'service': fields.Nested(service_fields)  # Include full service details
+    "service": fields.Nested(service_fields),  # Include full service details
 }
+
+
 class CustomerResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     # @cache.memoize()
     @marshal_with(customer_fields)
     def get(self, customer_id):
@@ -109,21 +118,22 @@ class CustomerResource(Resource):
             customer = Customer.query.get_or_404(customer_id)
             return customer
         except Exception as e:
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
 
-    @auth_required('token')
+    @auth_required("token")
     def delete(self, customer_id):
         try:
             customer = Customer.query.get_or_404(customer_id)
             db.session.delete(customer)
             db.session.commit()
-            return {'message': 'Customer deleted successfully'}, 200
+            return {"message": "Customer deleted successfully"}, 200
         except Exception as e:
             db.session.rollback()
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
+
 
 class ServiceProfessionalResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     @marshal_with(service_professional_fields)
     def get(self, professional_id):
         try:
@@ -131,125 +141,130 @@ class ServiceProfessionalResource(Resource):
             professional = ServiceProfessional.query.get_or_404(professional_id)
             return professional  # Marshaled with service_professional_fields
         except Exception as e:
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
 
-    @auth_required('token')
+    @auth_required("token")
     def delete(self, professional_id):
         try:
             professional = ServiceProfessional.query.get_or_404(professional_id)
             db.session.delete(professional)
             db.session.commit()
-            return {'message': 'Service Professional deleted successfully'}, 200
+            return {"message": "Service Professional deleted successfully"}, 200
         except Exception as e:
             db.session.rollback()
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
+
 
 class AllCustomersResource(Resource):
     @marshal_with(customer_fields)
-    @auth_required('token')
+    @auth_required("token")
     def get(self):
         try:
             customers = Customer.query.all()
             return customers
         except Exception as e:
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
 
-    @auth_required('token')
+    @auth_required("token")
     def post(self):
         try:
             data = request.get_json()
             new_user = User(
-                email=data['email'],
-                password=hash_password(data['password']),
-                username=data['username'],
-                fs_uniquifier=data['username'] + "_unique"
+                email=data["email"],
+                password=hash_password(data["password"]),
+                username=data["username"],
+                fs_uniquifier=data["username"] + "_unique",
             )
             db.session.add(new_user)
             db.session.commit()
 
-            customer_role = Role.query.filter_by(name='customer').first()
+            customer_role = Role.query.filter_by(name="customer").first()
             user_role = UserRoles(user_id=new_user.id, role_id=customer_role.id)
             db.session.add(user_role)
             db.session.commit()
 
             new_customer = Customer(
                 user_id=new_user.id,
-                username=data['username'],
-                password=hash_password(data['password']),
-                name=data['name'],
-                email=data['email'],
-                address=data['address'],
-                pin_code=data['pin_code'],
-                phone_no=data['phone_no'],
-                gender=data.get('gender'),
-                profile_pic=data.get('profile_pic'),
-                average_rating=data.get('average_rating', 0.0),
-                is_blocked=data.get('is_blocked', False)
+                username=data["username"],
+                password=hash_password(data["password"]),
+                name=data["name"],
+                email=data["email"],
+                address=data["address"],
+                pin_code=data["pin_code"],
+                phone_no=data["phone_no"],
+                gender=data.get("gender"),
+                profile_pic=data.get("profile_pic"),
+                average_rating=data.get("average_rating", 0.0),
+                is_blocked=data.get("is_blocked", False),
             )
             db.session.add(new_customer)
             db.session.commit()
-            return {'message': 'Customer created successfully'}, 201
+            return {"message": "Customer created successfully"}, 201
         except Exception as e:
             db.session.rollback()
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
+
 
 class AllServiceProfessionalsResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     @marshal_with(service_professional_fields)
     def get(self):
         try:
             professionals = ServiceProfessional.query.all()
-# Debugging: Check if document_url exists for each professional
+            # Debugging: Check if document_url exists for each professional
             for professional in professionals:
-                print(f"Professional ID: {professional.id}, Document URL: {professional.document_url}")
+                print(
+                    f"Professional ID: {professional.id}, Document URL: {professional.document_url}"
+                )
             return professionals
         except Exception as e:
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
 
-    @auth_required('token')
+    @auth_required("token")
     def post(self):
         try:
             data = request.get_json()
             new_user = User(
-                email=data['email'],
-                password=hash_password(data['password']),
-                username=data['username'],
-                fs_uniquifier=data['username'] + "_unique"
+                email=data["email"],
+                password=hash_password(data["password"]),
+                username=data["username"],
+                fs_uniquifier=data["username"] + "_unique",
             )
             db.session.add(new_user)
             db.session.commit()
 
-            professional_role = Role.query.filter_by(name='professional').first()
+            professional_role = Role.query.filter_by(name="professional").first()
             user_role = UserRoles(user_id=new_user.id, role_id=professional_role.id)
             db.session.add(user_role)
             db.session.commit()
 
             new_professional = ServiceProfessional(
                 user_id=new_user.id,
-                username=data['username'],
-                password=hash_password(data['password']),
-                name=data['name'],
-                service_type=data['service_type'],
-                experience=data['experience'],
-                phone_no=data['phone_no'],
-                email=data['email'],
-                address=data['address'],
-                pin_code=data['pin_code'],
-                verified_status=data.get('verified_status', 'Not verified yet'),
-                gender=data.get('gender'),
-                profile_pic=data.get('profile_pic'),
-                average_rating=data.get('average_rating', 0.0),
-                document=data.get('document'),
-                block_status=data.get('block_status', False)
+                username=data["username"],
+                password=hash_password(data["password"]),
+                name=data["name"],
+                service_type=data["service_type"],
+                experience=data["experience"],
+                phone_no=data["phone_no"],
+                email=data["email"],
+                address=data["address"],
+                pin_code=data["pin_code"],
+                verified_status=data.get("verified_status", "Not verified yet"),
+                gender=data.get("gender"),
+                profile_pic=data.get("profile_pic"),
+                average_rating=data.get("average_rating", 0.0),
+                document=data.get("document"),
+                block_status=data.get("block_status", False),
             )
             db.session.add(new_professional)
-            
+
             db.session.commit()
-            return {'message': 'Service Professional created successfully'}, 201
+            return {"message": "Service Professional created successfully"}, 201
         except Exception as e:
             db.session.rollback()
-            return {'message': str(e)}, 500
-        
+            return {"message": str(e)}, 500
+
+
 class AllServicesResource(Resource):
     @marshal_with(service_fields)
     def get(self):
@@ -257,30 +272,32 @@ class AllServicesResource(Resource):
             services = Service.query.all()  # Fetch all services
             return services, 200
         except Exception as e:
-            return {'message': f"Error fetching services: {str(e)}"}, 500
-    
-    @auth_required('token')
+            return {"message": f"Error fetching services: {str(e)}"}, 500
+
+    @auth_required("token")
     @marshal_with(service_fields)
     def post(self):
         # Get form data
-        name = request.form.get('name')
-        description = request.form.get('description')
-        base_price = request.form.get('base_price')
-        base_time_required = request.form.get('base_time_required')
-        
+        name = request.form.get("name")
+        description = request.form.get("description")
+        base_price = request.form.get("base_price")
+        base_time_required = request.form.get("base_time_required")
+
         # Basic validation for required fields
         if not name or not description or not base_price or not base_time_required:
-            return {'message': 'Missing required fields'}, 400
-        
+            return {"message": "Missing required fields"}, 400
+
         try:
             # Convert base_price and base_time_required to correct types
             base_price = float(base_price)
-            base_time_required = (base_time_required)
+            base_time_required = base_time_required
         except ValueError:
-            return {'message': 'Invalid data types for base_price or base_time_required'}, 400
-        
+            return {
+                "message": "Invalid data types for base_price or base_time_required"
+            }, 400
+
         # Handle picture upload (if any)
-        picture = request.files.get('picture')  # Get the uploaded picture
+        picture = request.files.get("picture")  # Get the uploaded picture
 
         image_url = None  # Default to None if no picture
 
@@ -289,21 +306,23 @@ class AllServicesResource(Resource):
                 # Upload to Cloudinary and get the image URL
                 upload_result = cloudinary.uploader.upload(
                     picture,
-                    folder="services"  # Folder where images will be stored in Cloudinary
+                    folder="services",  # Folder where images will be stored in Cloudinary
                 )
-                image_url = upload_result['secure_url']  # Get the URL of the uploaded image
+                image_url = upload_result[
+                    "secure_url"
+                ]  # Get the URL of the uploaded image
             except Exception as e:
-                return {'message': f"Error uploading image: {str(e)}"}, 500
-        
+                return {"message": f"Error uploading image: {str(e)}"}, 500
+
         # Create a new service entry
         new_service = Service(
             name=name,
             description=description,
             base_price=base_price,
             base_time_required=base_time_required,
-            image_url=image_url  # Store the Cloudinary image URL
+            image_url=image_url,  # Store the Cloudinary image URL
         )
-        
+
         try:
             # Add the new service to the database and commit
             db.session.add(new_service)
@@ -311,51 +330,56 @@ class AllServicesResource(Resource):
 
             # Return success response
             return {
-                'message': 'Service added successfully',
-                'service_id': new_service.id,
-                'image_url': image_url  # Include image URL in response for confirmation
+                "message": "Service added successfully",
+                "service_id": new_service.id,
+                "image_url": image_url,  # Include image URL in response for confirmation
             }, 200
 
         except Exception as e:
             db.session.rollback()  # Rollback any changes if there's an error in committing
-            return {'message': f"Error adding service: {str(e)}"}, 500
-        
-        
+            return {"message": f"Error adding service: {str(e)}"}, 500
+
+
 from cloudinary.uploader import upload
 from cloudinary.exceptions import Error as CloudinaryError
 
+
 class ServiceResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     @marshal_with(service_fields)
     def get(self, service_id):
         try:
             service = Service.query.get_or_404(service_id)
             return service, 200
         except Exception as e:
-            return {'message': f"Error fetching service: {str(e)}"}, 500
-        
-    @auth_required('token')
+            return {"message": f"Error fetching service: {str(e)}"}, 500
+
+    @auth_required("token")
     def put(self, service_id):
         try:
             # Fetch the service to update
             service = Service.query.get_or_404(service_id)
 
             # Get form data (excluding the image)
-            name = request.form.get('name', service.name)
-            description = request.form.get('description', service.description)
-            base_price = request.form.get('base_price', service.base_price)
-            base_time_required = request.form.get('base_time_required', service.base_time_required)
+            name = request.form.get("name", service.name)
+            description = request.form.get("description", service.description)
+            base_price = request.form.get("base_price", service.base_price)
+            base_time_required = request.form.get(
+                "base_time_required", service.base_time_required
+            )
 
             # Basic validation for required fields
             if not name or not description or not base_price or not base_time_required:
-                return {'message': 'Missing required fields'}, 400
+                return {"message": "Missing required fields"}, 400
 
             try:
                 # Convert base_price and base_time_required to correct types
                 base_price = float(base_price)
-                base_time_required = (base_time_required)
+                base_time_required = base_time_required
             except ValueError:
-                return {'message': 'Invalid data types for base_price or base_time_required'}, 400
+                return {
+                    "message": "Invalid data types for base_price or base_time_required"
+                }, 400
 
             # Update service details
             service.name = name
@@ -364,86 +388,47 @@ class ServiceResource(Resource):
             service.base_time_required = base_time_required
 
             # Handle picture upload if included
-            picture = request.files.get('picture')  # Get the uploaded picture (if any)
-            print(f"Picture received: {picture}")  # Check if the picture is being received
+            picture = request.files.get("picture")  # Get the uploaded picture (if any)
+            print(
+                f"Picture received: {picture}"
+            )  # Check if the picture is being received
 
             if picture:
                 try:
                     # Upload to Cloudinary and get the image URL
                     upload_result = cloudinary.uploader.upload(
                         picture,
-                        folder="services"  # Folder where images will be stored in Cloudinary
+                        folder="services",  # Folder where images will be stored in Cloudinary
                     )
                     # Get the URL of the uploaded image
-                    service.image_url = upload_result['secure_url']
+                    service.image_url = upload_result["secure_url"]
                 except Exception as e:
-                    return {'message': f"Error uploading image: {str(e)}"}, 500
+                    return {"message": f"Error uploading image: {str(e)}"}, 500
 
             # Commit the changes to the database
             db.session.commit()
 
             # Return the updated service details, including the image URL
-            return {'message': 'Service updated successfully', 'image_url': service.image_url}, 200
+            return {
+                "message": "Service updated successfully",
+                "image_url": service.image_url,
+            }, 200
 
         except Exception as e:
             db.session.rollback()  # Rollback any changes if there's an error
-            return {'message': f"Error updating service: {str(e)}"}, 500
+            return {"message": f"Error updating service: {str(e)}"}, 500
 
-
-    @auth_required('token')
+    @auth_required("token")
     def delete(self, service_id):
         try:
             service = Service.query.get_or_404(service_id)
             db.session.delete(service)
             db.session.commit()
-            return {'message': 'Service deleted successfully'}, 200
+            return {"message": "Service deleted successfully"}, 200
         except Exception as e:
-            return {'message': f"Error deleting service: {str(e)}"}, 500
-    
+            return {"message": f"Error deleting service: {str(e)}"}, 500
 
-# class CheckUsernameAvailabilityResource(Resource):
-#     def get(self, username):
-#         try:
-#             # Query the database to check if the username exists
-#             user = User.query.filter_by(username=username).first()
-#             if user:
-#                 return jsonify({"available": False, "message": "Username is already taken."})
-#             else:
-#                 return jsonify({"available": True, "message": "Username is available."})
-#         except Exception as e:
-#             return jsonify({"message": str(e)}), 500
-        
-# class CheckEmailResource(Resource):
-#     def get(self, email):
-#         user = User.query.filter_by(email=email).first()
-#         if user:
-#             return jsonify({"available": False, "message": "Email is already taken"})
-#         return jsonify({"available": True})
 
-# class CheckUsernameAvailabilityResource(Resource):
-#     def get(self, username):
-#         try:
-#             # Query the database to check if the username exists
-#             user = User.query.filter_by(username=username).first()
-#             return {
-#                 "available": user is None,
-#                 "message": "Username is available." if user is None else "Username is already taken."
-#             }
-#         except Exception as e:
-#             return {"error": str(e)}, 500
-
-# class CheckEmailResource(Resource):
-#     def get(self, email):
-#         try:
-#             # Query the database to check if the email exists
-#             user = User.query.filter_by(email=email).first()
-#             return {
-#                 "available": user is None,
-#                 "message": "Email is available." if user is None else "Email is already taken."
-#             }
-#         except Exception as e:
-#             return {"error": str(e)}, 500
-        
 class CheckAvailabilityResource(Resource):
     def post(self):
         try:
@@ -457,17 +442,29 @@ class CheckAvailabilityResource(Resource):
 
             # Check the appropriate field
             if field_type == "username":
-                user = User.query.filter(User.username == value, User.id != current_user_id).first()
+                user = User.query.filter(
+                    User.username == value, User.id != current_user_id
+                ).first()
                 return {
                     "available": user is None,
-                    "message": "Username is available." if user is None else "Username is already taken."
+                    "message": (
+                        "Username is available."
+                        if user is None
+                        else "Username is already taken."
+                    ),
                 }
 
             elif field_type == "email":
-                user = User.query.filter(User.email == value, User.id != current_user_id).first()
+                user = User.query.filter(
+                    User.email == value, User.id != current_user_id
+                ).first()
                 return {
                     "available": user is None,
-                    "message": "Email is available." if user is None else "Email is already in use."
+                    "message": (
+                        "Email is available."
+                        if user is None
+                        else "Email is already in use."
+                    ),
                 }
 
             return {"error": "Invalid field type."}, 400
@@ -475,16 +472,17 @@ class CheckAvailabilityResource(Resource):
         except Exception as e:
             return {"error": str(e)}, 500
 
+
 api.add_resource(CheckAvailabilityResource, "/check-availability")
 
-    
+
 class ModifyProfessionalStatusResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def post(self, action, id):
         print(f"Action: {action}, ID: {id}")
 
         # Validate the action
-        if action not in ['approve', 'reject', 'block', 'unblock']:
+        if action not in ["approve", "reject", "block", "unblock"]:
             return {"message": "Invalid action"}, 400  # Use plain dict
 
         # Fetch the service professional by id
@@ -504,181 +502,212 @@ class ModifyProfessionalStatusResource(Resource):
                 professional.block_status = False
 
             db.session.commit()
-            return {"message": f"Professional {action}d successfully."}, 200  # Use plain dict
+            return {
+                "message": f"Professional {action}d successfully."
+            }, 200  # Use plain dict
         except Exception as e:
             db.session.rollback()
             print(f"Error during {action}: {str(e)}")
-            return {"message": f"Error updating professional status: {str(e)}"}, 500  # Use plain dict
+            return {
+                "message": f"Error updating professional status: {str(e)}"
+            }, 500  # Use plain dict
+
 
 class ProfessionalsByServiceResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def get(self, service_id):
         try:
             print(f"Fetching professionals for service_id: {service_id}")
-            
+
             # Get the base service first
             base_service = Service.query.get(service_id)
             if not base_service:
-                return {'message': 'Service not found'}, 404
-                
+                return {"message": "Service not found"}, 404
+
             professionals = (
-                ServiceProfessional.query
-                .join(ProfessionalService, ServiceProfessional.id == ProfessionalService.professional_id)
+                ServiceProfessional.query.join(
+                    ProfessionalService,
+                    ServiceProfessional.id == ProfessionalService.professional_id,
+                )
                 .join(Service, ProfessionalService.service_id == Service.id)
                 .filter(
                     Service.id == service_id,
                     ServiceProfessional.verified_status == "approved",
-                    ServiceProfessional.block_status == False
+                    ServiceProfessional.block_status == False,
                 )
                 .all()
             )
-            
+
             if not professionals:
-                return {'message': 'No professionals found for this service.'}, 404
-            
+                return {"message": "No professionals found for this service."}, 404
+
             # Prepare the response with custom services data
             results = []
             for professional in professionals:
                 prof_dict = marshal(professional, service_professional_fields)
-                
+
                 # Get the professional's custom service details
                 custom_services = ProfessionalService.query.filter_by(
-                    professional_id=professional.id,
-                    service_id=service_id
+                    professional_id=professional.id, service_id=service_id
                 ).all()
-                
+
                 # If no custom services or the custom fields are None, use base service values
                 if not custom_services:
                     # Create a default service based on the base service
-                    prof_dict['custom_services'] = [{
-                        'id': None,
-                        'custom_price': base_service.base_price,
-                        'custom_description': base_service.description,
-                        'custom_time_required': base_service.base_time_required
-                    }]
+                    prof_dict["custom_services"] = [
+                        {
+                            "id": None,
+                            "custom_price": base_service.base_price,
+                            "custom_description": base_service.description,
+                            "custom_time_required": base_service.base_time_required,
+                        }
+                    ]
                 else:
                     # Process existing custom services
-                    prof_dict['custom_services'] = []
+                    prof_dict["custom_services"] = []
                     for cs in custom_services:
                         custom_service = {
-                            'id': cs.id,
-                            'custom_price': cs.custom_price if cs.custom_price is not None else base_service.base_price,
-                            'custom_description': cs.custom_description if cs.custom_description else base_service.description,
-                            'custom_time_required': cs.custom_time_required if cs.custom_time_required else base_service.base_time_required
+                            "id": cs.id,
+                            "custom_price": (
+                                cs.custom_price
+                                if cs.custom_price is not None
+                                else base_service.base_price
+                            ),
+                            "custom_description": (
+                                cs.custom_description
+                                if cs.custom_description
+                                else base_service.description
+                            ),
+                            "custom_time_required": (
+                                cs.custom_time_required
+                                if cs.custom_time_required
+                                else base_service.base_time_required
+                            ),
                         }
-                        prof_dict['custom_services'].append(custom_service)
-                
+                        prof_dict["custom_services"].append(custom_service)
+
                 results.append(prof_dict)
-                
+
             return results, 200
-            
+
         except Exception as e:
             print(f"Error in ProfessionalsByServiceResource: {e}")
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
 
-api.add_resource(ProfessionalsByServiceResource, '/professionals-by-service/<int:service_id>')
+
+api.add_resource(
+    ProfessionalsByServiceResource, "/professionals-by-service/<int:service_id>"
+)
 
 # Register the API route
-api.add_resource(ModifyProfessionalStatusResource, '/service_professionals/<string:action>/<int:id>')
+api.add_resource(
+    ModifyProfessionalStatusResource, "/service_professionals/<string:action>/<int:id>"
+)
+
 
 # Add the new resource to the API
-# api.add_resource(CheckUsernameAvailabilityResource, '/check-username/<string:username>')
-# api.add_resource(CheckEmailResource, "/check-email/<string:email>")
-
-# Add the new resource to the API
-api.add_resource(ServiceResource, '/services/<int:service_id>')
+api.add_resource(ServiceResource, "/services/<int:service_id>")
 
 # Add the resources to the API
-api.add_resource(CustomerResource, '/customers/<int:customer_id>')
-api.add_resource(ServiceProfessionalResource, '/service_professionals/<int:professional_id>')
-api.add_resource(AllCustomersResource, '/customers')
-api.add_resource(AllServiceProfessionalsResource, '/service_professionals')
-api.add_resource(AllServicesResource, '/services')
-
+api.add_resource(CustomerResource, "/customers/<int:customer_id>")
+api.add_resource(
+    ServiceProfessionalResource, "/service_professionals/<int:professional_id>"
+)
+api.add_resource(AllCustomersResource, "/customers")
+api.add_resource(AllServiceProfessionalsResource, "/service_professionals")
+api.add_resource(AllServicesResource, "/services")
 
 
 class ServiceRequestListResource(Resource):
 
-    @auth_required('token')
-    @marshal_with(service_request_fields)   
+    @auth_required("token")
+    @marshal_with(service_request_fields)
     def get(self):
         try:
             service_requests = ServiceRequest.query.all()
             return service_requests, 200
         except Exception as e:
-            return {'message': f"Error fetching service requests: {str(e)}"}, 500
+            return {"message": f"Error fetching service requests: {str(e)}"}, 500
 
-    @auth_required('token')
+    @auth_required("token")
     def post(self):
 
         try:
             data = request.get_json()
             new_request = ServiceRequest(
-                service_id=data['service_id'],
-                customer_id=data['customer_id'],
-                professional_id=data['professional_id'],
+                service_id=data["service_id"],
+                customer_id=data["customer_id"],
+                professional_id=data["professional_id"],
                 date_of_request=datetime.now(timezone.utc),
                 service_status="requested",
-                remarks=data.get('remarks'),
-                requested_date=data.get('requested_date'),
-                requested_time=data.get('requested_time')
+                remarks=data.get("remarks"),
+                requested_date=data.get("requested_date"),
+                requested_time=data.get("requested_time"),
             )
             db.session.add(new_request)
             db.session.commit()
-            return {'message': 'Service request created successfully'}, 201
+            return {"message": "Service request created successfully"}, 201
         except Exception as e:
             db.session.rollback()
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
+
 
 class SingleServiceRequestResource(Resource):
 
-    @auth_required('token')
+    @auth_required("token")
     @marshal_with(service_request_fields)
     def get(self, request_id):
         try:
             service_request = ServiceRequest.query.get_or_404(request_id)
             return service_request, 200
         except Exception as e:
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
 
-    @auth_required('token')
+    @auth_required("token")
     def patch(self, request_id):
 
         try:
             data = request.get_json()
             service_request = ServiceRequest.query.get_or_404(request_id)
-            if 'service_status' in data:
-                service_request.service_status = data['service_status']
-            if 'remarks' in data:
-                service_request.remarks = data['remarks']
-            if 'rating' in data:
-                service_request.rating = data['rating']
+            if "service_status" in data:
+                service_request.service_status = data["service_status"]
+            if "remarks" in data:
+                service_request.remarks = data["remarks"]
+            if "rating" in data:
+                service_request.rating = data["rating"]
             db.session.commit()
-            return {'message': f"Service request {request_id} updated successfully"}, 200
+            return {
+                "message": f"Service request {request_id} updated successfully"
+            }, 200
         except Exception as e:
             db.session.rollback()
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
 
-    @auth_required('token')
+    @auth_required("token")
     def delete(self, request_id):
 
         try:
             service_request = ServiceRequest.query.get_or_404(request_id)
             db.session.delete(service_request)
             db.session.commit()
-            return {'message': f'Service request {request_id} deleted successfully'}, 200
+            return {
+                "message": f"Service request {request_id} deleted successfully"
+            }, 200
         except Exception as e:
             db.session.rollback()
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
+
 
 class AcceptServiceRequestResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def post(self, request_id):
         try:
             service_request = ServiceRequest.query.get_or_404(request_id)
 
             if service_request.service_status != "requested":
-                return {'message': 'Cannot accept service request unless it is in "requested" status'}, 400
+                return {
+                    "message": 'Cannot accept service request unless it is in "requested" status'
+                }, 400
 
             service_request.service_status = "accepted"
 
@@ -719,20 +748,24 @@ class AcceptServiceRequestResource(Resource):
                 professional_wallet.balance += amount_to_transfer
 
             db.session.commit()
-            return {'message': f'Service request {request_id} accepted and payment transferred'}, 200
+            return {
+                "message": f"Service request {request_id} accepted and payment transferred"
+            }, 200
         except Exception as e:
             db.session.rollback()
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
 
 
 class RejectServiceRequestResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def post(self, request_id):
         try:
             service_request = ServiceRequest.query.get_or_404(request_id)
 
             if service_request.service_status != "requested":
-                return {'message': 'Cannot reject service request unless it is in "requested" status'}, 400
+                return {
+                    "message": 'Cannot reject service request unless it is in "requested" status'
+                }, 400
 
             service_request.service_status = "rejected"
 
@@ -772,14 +805,16 @@ class RejectServiceRequestResource(Resource):
                 payment.amount = refund_amount
 
             db.session.commit()
-            return {'message': f'Service request {request_id} rejected and payment refunded'}, 200
+            return {
+                "message": f"Service request {request_id} rejected and payment refunded"
+            }, 200
         except Exception as e:
             db.session.rollback()
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
 
 
 class CloseServiceRequestResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def post(self, request_id):
         try:
             data = request.get_json()
@@ -789,7 +824,9 @@ class CloseServiceRequestResource(Resource):
             service_request = ServiceRequest.query.get_or_404(request_id)
 
             if service_request.service_status != "accepted":
-                return {'message': 'Cannot close a service request unless it is in "accepted" status'}, 400
+                return {
+                    "message": 'Cannot close a service request unless it is in "accepted" status'
+                }, 400
 
             service_request.service_status = "Completed"
             service_request.date_of_completion = datetime.now(timezone.utc)
@@ -797,71 +834,92 @@ class CloseServiceRequestResource(Resource):
             service_request.customer_remarks = remarks
 
             db.session.commit()
-            return {'message': f'Service request {request_id} closed successfully'}, 200
+            return {"message": f"Service request {request_id} closed successfully"}, 200
         except Exception as e:
             db.session.rollback()
-            return {'message': str(e)}, 500
-        
-api.add_resource(ServiceRequestListResource, '/service_requests')
-api.add_resource(SingleServiceRequestResource, '/service_requests/<int:request_id>')
-api.add_resource(AcceptServiceRequestResource, '/service_requests/<int:request_id>/accept')
-api.add_resource(RejectServiceRequestResource, '/service_requests/<int:request_id>/reject')
-api.add_resource(CloseServiceRequestResource, '/service_requests/<int:request_id>/close')
+            return {"message": str(e)}, 500
+
+
+api.add_resource(ServiceRequestListResource, "/service_requests")
+api.add_resource(SingleServiceRequestResource, "/service_requests/<int:request_id>")
+api.add_resource(
+    AcceptServiceRequestResource, "/service_requests/<int:request_id>/accept"
+)
+api.add_resource(
+    RejectServiceRequestResource, "/service_requests/<int:request_id>/reject"
+)
+api.add_resource(
+    CloseServiceRequestResource, "/service_requests/<int:request_id>/close"
+)
+
 
 class ServiceRequestResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def post(self):
         try:
             data = request.get_json()
-            required_fields = ['professional_id', 'service_id', 'customer_id', 'requested_date', 'requested_time']
-            
+            required_fields = [
+                "professional_id",
+                "service_id",
+                "customer_id",
+                "requested_date",
+                "requested_time",
+            ]
+
             # Check if all required fields are present
             for field in required_fields:
                 if field not in data:
-                    return {'message': f'Missing {field} field'}, 400
+                    return {"message": f"Missing {field} field"}, 400
 
             # Fetch customer and professional details
-            customer = Customer.query.get(data['customer_id'])
-            professional = ServiceProfessional.query.get(data['professional_id'])
+            customer = Customer.query.get(data["customer_id"])
+            professional = ServiceProfessional.query.get(data["professional_id"])
 
             # Check if customer or professional is blocked
             if customer.is_blocked:
-                return {'message': 'Customer account is blocked'}, 403
+                return {"message": "Customer account is blocked"}, 403
             if professional.block_status:
-                return {'message': 'Professional account is blocked'}, 403
+                return {"message": "Professional account is blocked"}, 403
 
             # Validate requested date and time
             try:
-                requested_date = datetime.strptime(data['requested_date'], '%Y-%m-%d').date()
-                requested_time = datetime.strptime(data['requested_time'], '%H:%M').time()
+                requested_date = datetime.strptime(
+                    data["requested_date"], "%Y-%m-%d"
+                ).date()
+                requested_time = datetime.strptime(
+                    data["requested_time"], "%H:%M"
+                ).time()
             except ValueError:
-                return {'message': 'Invalid date or time format'}, 400
+                return {"message": "Invalid date or time format"}, 400
 
             # Ensure the requested date is not in the past
             if requested_date < datetime.utcnow().date():
-                return {'message': 'Cannot book a service for a past date'}, 400
+                return {"message": "Cannot book a service for a past date"}, 400
 
             # Fetch the service details
-            service = Service.query.get(data['service_id'])
+            service = Service.query.get(data["service_id"])
             if not service:
-                return {'message': 'Service not found'}, 404
+                return {"message": "Service not found"}, 404
 
             # Fetch the professional's custom price for the service
             professional_service = ProfessionalService.query.filter_by(
-                professional_id=data['professional_id'], 
-                service_id=data['service_id']
+                professional_id=data["professional_id"], service_id=data["service_id"]
             ).first()
 
             if not professional_service:
-                return {'message': 'Professional does not offer this service'}, 404
+                return {"message": "Professional does not offer this service"}, 404
 
-            amount = professional_service.custom_price if professional_service.custom_price else service.base_price
+            amount = (
+                professional_service.custom_price
+                if professional_service.custom_price
+                else service.base_price
+            )
 
             # Create the service request
             new_request = ServiceRequest(
-                service_id=data['service_id'],
-                customer_id=data['customer_id'],
-                professional_id=data['professional_id'],
+                service_id=data["service_id"],
+                customer_id=data["customer_id"],
+                professional_id=data["professional_id"],
                 date_of_request=datetime.utcnow(),
                 service_status="requested",
                 requested_date=requested_date,
@@ -874,8 +932,8 @@ class ServiceRequestResource(Resource):
             # Create the payment record (without updating wallet yet)
             new_payment = Payment(
                 service_request_id=new_request.id,
-                customer_id=data['customer_id'],
-                professional_id=data['professional_id'],
+                customer_id=data["customer_id"],
+                professional_id=data["professional_id"],
                 amount=amount,
                 payment_status="Pending",  # Initially Pending
                 is_transferred=False,
@@ -885,218 +943,176 @@ class ServiceRequestResource(Resource):
             db.session.add(new_payment)
             db.session.commit()
 
-            return {'message': 'Service request created successfully', 'id': new_request.id}, 201
+            return {
+                "message": "Service request created successfully",
+                "id": new_request.id,
+            }, 201
 
         except Exception as e:
             db.session.rollback()
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
+
 
 # Add this at the bottom of the file
-api.add_resource(ServiceRequestResource, '/book-service')
+api.add_resource(ServiceRequestResource, "/book-service")
 from sqlalchemy.orm import joinedload
 
+
 class ProfessionalServiceRequestsResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def get(self, professional_id):
         try:
             # Fetch service requests for the professional and include customer and service details
-            service_requests = ServiceRequest.query \
-                .filter_by(professional_id=professional_id) \
-                .options(joinedload(ServiceRequest.service)) \
-                .options(joinedload(ServiceRequest.customer)) \
+            service_requests = (
+                ServiceRequest.query.filter_by(professional_id=professional_id)
+                .options(joinedload(ServiceRequest.service))
+                .options(joinedload(ServiceRequest.customer))
                 .all()
-            
+            )
+
             # Marshal and return the data
             return marshal(service_requests, service_request_fields), 200
         except Exception as e:
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
 
-api.add_resource(ProfessionalServiceRequestsResource, '/service_requests/professional/<int:professional_id>')
+
+api.add_resource(
+    ProfessionalServiceRequestsResource,
+    "/service_requests/professional/<int:professional_id>",
+)
+
 
 class TodayServiceRequestsResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def get(self, professional_id):
         try:
             today = date.today()
             service_requests = ServiceRequest.query.filter(
                 ServiceRequest.professional_id == professional_id,
-                ServiceRequest.requested_date == today
+                ServiceRequest.requested_date == today,
             ).all()
             return marshal(service_requests, service_request_fields), 200
         except Exception as e:
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
 
-api.add_resource(TodayServiceRequestsResource, '/service_requests/professional/<int:professional_id>/today')
+
+api.add_resource(
+    TodayServiceRequestsResource,
+    "/service_requests/professional/<int:professional_id>/today",
+)
+
 
 class CustomerBlockResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def post(self, customer_id, action):
         try:
             # Validate action
-            if action not in ['block', 'unblock']:
-                return {'message': 'Invalid action. Use "block" or "unblock".'}, 400
+            if action not in ["block", "unblock"]:
+                return {"message": 'Invalid action. Use "block" or "unblock".'}, 400
 
             # Fetch customer
             customer = Customer.query.get_or_404(customer_id)
 
             # Update block status
-            customer.is_blocked = (action == 'block')
+            customer.is_blocked = action == "block"
             db.session.commit()
 
             return {
-                'message': f'Customer successfully {action}ed',
-                'customer_id': customer_id,
-                'is_blocked': customer.is_blocked
+                "message": f"Customer successfully {action}ed",
+                "customer_id": customer_id,
+                "is_blocked": customer.is_blocked,
             }, 200
 
         except Exception as e:
             db.session.rollback()
             # Log the actual error internally instead of exposing it to the client
             app.logger.error(f"Error updating customer block status: {str(e)}")
-            return {'message': 'An internal error occurred. Please try again later.'}, 500
+            return {
+                "message": "An internal error occurred. Please try again later."
+            }, 500
+
 
 # Add these routes to your existing routes
-api.add_resource(
-    CustomerBlockResource, 
-    '/customers/<string:action>/<int:customer_id>'
-)
+api.add_resource(CustomerBlockResource, "/customers/<string:action>/<int:customer_id>")
+
 
 class CustomerStatusResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def get(self, customer_id):
         try:
             customer = Customer.query.get_or_404(customer_id)
-            return {
-                'id': customer.id,
-                'is_blocked': customer.is_blocked
-            }
+            return {"id": customer.id, "is_blocked": customer.is_blocked}
         except Exception as e:
-            return {'message': str(e)}, 500
-        
-api.add_resource(CustomerStatusResource, '/customers/<int:customer_id>/status')
+            return {"message": str(e)}, 500
 
-# class SearchResource(Resource):
-#     @auth_required('token')
-#     def get(self):
-#         try:
-#             entity = request.args.get('entity')
-#             query = request.args.get('query', '').strip()
-#             pincode = request.args.get('pincode')
-#             rating = request.args.get('rating', '').strip()
-#             condition = request.args.get('condition')
 
-#             if not entity:
-#                 return {'message': 'Entity parameter is required'}, 400
+api.add_resource(CustomerStatusResource, "/customers/<int:customer_id>/status")
 
-#             # Base query for professionals
-#             base_query = (
-#                 ServiceProfessional.query
-#                 .filter(ServiceProfessional.verified_status == "approved")
-#                 .filter(ServiceProfessional.block_status == False)
-#             )
 
-#             if entity == 'service':
-#                 results = Service.query.filter(Service.name.ilike(f'%{query}%')).all()
-#                 return marshal(results, service_fields)
-
-#             elif entity == 'pincode':
-#                 if not pincode:
-#                     return {'message': 'Pincode is required'}, 400
-
-#                 results = (
-#                     base_query.filter(ServiceProfessional.pin_code == pincode)
-#                     .with_entities(Service)
-#                     .distinct()
-#                     .all()
-#                 )
-#                 return marshal(results, service_fields)
-
-#             elif entity == 'rating':
-#                 # ✅ If rating is empty, return all professionals
-#                 if not rating:
-#                     results = base_query.all()
-#                     return marshal(results, service_professional_fields)
-
-#                 # Convert rating to float if provided
-#                 try:
-#                     rating = float(rating)
-#                 except ValueError:
-#                     return {'message': 'Invalid rating value. Must be a number.'}, 400
-
-#                 # Apply rating condition filter
-#                 if condition == 'high':
-#                     results = base_query.filter(ServiceProfessional.average_rating >= rating).all()
-#                 elif condition == 'low':
-#                     results = base_query.filter(ServiceProfessional.average_rating <= rating).all()
-#                 else:
-#                     return {'message': 'Invalid condition. Use "high" or "low".'}, 400
-
-#                 # ✅ Ensure professionals with missing average ratings are calculated
-#                 for professional in results:
-#                     if professional.average_rating is None:
-#                         avg_rating = calculate_average_rating_for_professional(professional.id)
-#                         professional.average_rating = avg_rating if avg_rating is not None else 0.0
-
-#                 return marshal(results, service_professional_fields)
-
-#             return {'message': 'Invalid search parameters'}, 400
-
-#         except Exception as e:
-#             print(f"Search error: {str(e)}")
-#             return {'message': str(e)}, 500
 class SearchResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def get(self):
         try:
-            entity = request.args.get('entity')
-            query = request.args.get('query', '').strip()
-            pincode = request.args.get('pincode')
-            rating = request.args.get('rating', '').strip()
-            condition = request.args.get('condition')
-            service_id = request.args.get('service_id')  # Parameter for service filtering
+            entity = request.args.get("entity")
+            query = request.args.get("query", "").strip()
+            pincode = request.args.get("pincode")
+            rating = request.args.get("rating", "").strip()
+            condition = request.args.get("condition")
+            service_id = request.args.get(
+                "service_id"
+            )  # Parameter for service filtering
 
             if not entity:
-                return {'message': 'Entity parameter is required'}, 400
+                return {"message": "Entity parameter is required"}, 400
 
             # Base query for professionals
-            base_query = (
-                ServiceProfessional.query
-                .filter(ServiceProfessional.verified_status == "approved")
-                .filter(ServiceProfessional.block_status == False)
-            )
+            base_query = ServiceProfessional.query.filter(
+                ServiceProfessional.verified_status == "approved"
+            ).filter(ServiceProfessional.block_status == False)
 
-            if entity == 'service':
-                results = Service.query.filter(Service.name.ilike(f'%{query}%')).all()
+            if entity == "service":
+                results = Service.query.filter(Service.name.ilike(f"%{query}%")).all()
                 return marshal(results, service_fields)
 
-            elif entity == 'pincode':
+            elif entity == "pincode":
                 if not pincode:
-                    return {'message': 'Pincode is required'}, 400
+                    return {"message": "Pincode is required"}, 400
 
                 # Start with the pincode filter
-                professionals_query = base_query.filter(ServiceProfessional.pin_code == pincode)
+                professionals_query = base_query.filter(
+                    ServiceProfessional.pin_code == pincode
+                )
 
                 # If service_id is provided, add service filter
                 if service_id:
-                    professionals_query = (
-                        professionals_query
-                        .join(ProfessionalService, ProfessionalService.professional_id == ServiceProfessional.id)
-                        .filter(ProfessionalService.service_id == service_id)
-                    )
+                    professionals_query = professionals_query.join(
+                        ProfessionalService,
+                        ProfessionalService.professional_id == ServiceProfessional.id,
+                    ).filter(ProfessionalService.service_id == service_id)
 
                     # If rating filter is also provided
                     if rating:
                         try:
                             rating_value = float(rating)
                         except ValueError:
-                            return {'message': 'Invalid rating value. Must be a number.'}, 400
+                            return {
+                                "message": "Invalid rating value. Must be a number."
+                            }, 400
 
-                        if condition == 'high':
-                            professionals_query = professionals_query.filter(ServiceProfessional.average_rating >= rating_value)
-                        elif condition == 'low':
-                            professionals_query = professionals_query.filter(ServiceProfessional.average_rating <= rating_value)
-                        elif condition:  # If condition is provided but not 'high' or 'low'
-                            return {'message': 'Invalid condition. Use "high" or "low".'}, 400
+                        if condition == "high":
+                            professionals_query = professionals_query.filter(
+                                ServiceProfessional.average_rating >= rating_value
+                            )
+                        elif condition == "low":
+                            professionals_query = professionals_query.filter(
+                                ServiceProfessional.average_rating <= rating_value
+                            )
+                        elif (
+                            condition
+                        ):  # If condition is provided but not 'high' or 'low'
+                            return {
+                                "message": 'Invalid condition. Use "high" or "low".'
+                            }, 400
 
                     # Get all professionals matching the criteria
                     professionals = professionals_query.all()
@@ -1104,54 +1120,75 @@ class SearchResource(Resource):
                     # Calculate missing ratings
                     for professional in professionals:
                         if professional.average_rating is None:
-                            avg_rating = calculate_average_rating_for_professional(professional.id)
-                            professional.average_rating = avg_rating if avg_rating is not None else 0.0
+                            avg_rating = calculate_average_rating_for_professional(
+                                professional.id
+                            )
+                            professional.average_rating = (
+                                avg_rating if avg_rating is not None else 0.0
+                            )
 
                     # Get the base service for default values
                     base_service = Service.query.get(service_id)
                     if not base_service:
-                        return {'message': 'Service not found'}, 404
-                    
+                        return {"message": "Service not found"}, 404
+
                     # Process professionals with custom service details
                     results = []
                     for professional in professionals:
                         prof_dict = marshal(professional, service_professional_fields)
-                        
+
                         # Get the professional's custom service details
                         custom_services = ProfessionalService.query.filter_by(
-                            professional_id=professional.id,
-                            service_id=service_id
+                            professional_id=professional.id, service_id=service_id
                         ).all()
-                        
+
                         # If no custom services or the custom fields are None, use base service values
                         if not custom_services:
                             # Create a default service based on the base service
-                            prof_dict['custom_services'] = [{
-                                'id': None,
-                                'custom_price': base_service.base_price,
-                                'custom_description': base_service.description,
-                                'custom_time_required': base_service.base_time_required
-                            }]
+                            prof_dict["custom_services"] = [
+                                {
+                                    "id": None,
+                                    "custom_price": base_service.base_price,
+                                    "custom_description": base_service.description,
+                                    "custom_time_required": base_service.base_time_required,
+                                }
+                            ]
                         else:
                             # Process existing custom services
-                            prof_dict['custom_services'] = []
+                            prof_dict["custom_services"] = []
                             for cs in custom_services:
                                 custom_service = {
-                                    'id': cs.id,
-                                    'custom_price': cs.custom_price if cs.custom_price is not None else base_service.base_price,
-                                    'custom_description': cs.custom_description if cs.custom_description else base_service.description,
-                                    'custom_time_required': cs.custom_time_required if cs.custom_time_required else base_service.base_time_required
+                                    "id": cs.id,
+                                    "custom_price": (
+                                        cs.custom_price
+                                        if cs.custom_price is not None
+                                        else base_service.base_price
+                                    ),
+                                    "custom_description": (
+                                        cs.custom_description
+                                        if cs.custom_description
+                                        else base_service.description
+                                    ),
+                                    "custom_time_required": (
+                                        cs.custom_time_required
+                                        if cs.custom_time_required
+                                        else base_service.base_time_required
+                                    ),
                                 }
-                                prof_dict['custom_services'].append(custom_service)
-                        
+                                prof_dict["custom_services"].append(custom_service)
+
                         results.append(prof_dict)
-                    
+
                     return results, 200
                 else:
                     # No service_id, just return services available in that pincode
                     results = (
                         base_query.filter(ServiceProfessional.pin_code == pincode)
-                        .join(ProfessionalService, ProfessionalService.professional_id == ServiceProfessional.id)
+                        .join(
+                            ProfessionalService,
+                            ProfessionalService.professional_id
+                            == ServiceProfessional.id,
+                        )
                         .join(Service, ProfessionalService.service_id == Service.id)
                         .with_entities(Service)
                         .distinct()
@@ -1159,7 +1196,7 @@ class SearchResource(Resource):
                     )
                     return marshal(results, service_fields)
 
-            elif entity == 'rating':
+            elif entity == "rating":
                 # Build the query with rating filter
                 try:
                     if rating:
@@ -1167,31 +1204,38 @@ class SearchResource(Resource):
                     else:
                         rating_value = None
                 except ValueError:
-                    return {'message': 'Invalid rating value. Must be a number.'}, 400
+                    return {"message": "Invalid rating value. Must be a number."}, 400
 
                 # Start with the base query
                 professionals_query = base_query
 
                 # Add pincode filter if provided
                 if pincode:
-                    professionals_query = professionals_query.filter(ServiceProfessional.pin_code == pincode)
+                    professionals_query = professionals_query.filter(
+                        ServiceProfessional.pin_code == pincode
+                    )
 
                 # Add service filter if provided
                 if service_id:
-                    professionals_query = (
-                        professionals_query
-                        .join(ProfessionalService, ProfessionalService.professional_id == ServiceProfessional.id)
-                        .filter(ProfessionalService.service_id == service_id)
-                    )
+                    professionals_query = professionals_query.join(
+                        ProfessionalService,
+                        ProfessionalService.professional_id == ServiceProfessional.id,
+                    ).filter(ProfessionalService.service_id == service_id)
 
                 # Add rating filter if provided
                 if rating_value is not None:
-                    if condition == 'high':
-                        professionals_query = professionals_query.filter(ServiceProfessional.average_rating >= rating_value)
-                    elif condition == 'low':
-                        professionals_query = professionals_query.filter(ServiceProfessional.average_rating <= rating_value)
+                    if condition == "high":
+                        professionals_query = professionals_query.filter(
+                            ServiceProfessional.average_rating >= rating_value
+                        )
+                    elif condition == "low":
+                        professionals_query = professionals_query.filter(
+                            ServiceProfessional.average_rating <= rating_value
+                        )
                     else:
-                        return {'message': 'Invalid condition. Use "high" or "low".'}, 400
+                        return {
+                            "message": 'Invalid condition. Use "high" or "low".'
+                        }, 400
 
                 # Get all professionals matching the criteria
                 professionals = professionals_query.all()
@@ -1199,84 +1243,101 @@ class SearchResource(Resource):
                 # Calculate missing ratings
                 for professional in professionals:
                     if professional.average_rating is None:
-                        avg_rating = calculate_average_rating_for_professional(professional.id)
-                        professional.average_rating = avg_rating if avg_rating is not None else 0.0
+                        avg_rating = calculate_average_rating_for_professional(
+                            professional.id
+                        )
+                        professional.average_rating = (
+                            avg_rating if avg_rating is not None else 0.0
+                        )
 
                 # If service_id is provided, include custom service details
                 if service_id:
                     # Get the base service for default values
                     base_service = Service.query.get(service_id)
                     if not base_service:
-                        return {'message': 'Service not found'}, 404
-                    
+                        return {"message": "Service not found"}, 404
+
                     # Process professionals with custom service details
                     results = []
                     for professional in professionals:
                         prof_dict = marshal(professional, service_professional_fields)
-                        
+
                         # Get the professional's custom service details
                         custom_services = ProfessionalService.query.filter_by(
-                            professional_id=professional.id,
-                            service_id=service_id
+                            professional_id=professional.id, service_id=service_id
                         ).all()
-                        
+
                         # If no custom services or the custom fields are None, use base service values
                         if not custom_services:
                             # Create a default service based on the base service
-                            prof_dict['custom_services'] = [{
-                                'id': None,
-                                'custom_price': base_service.base_price,
-                                'custom_description': base_service.description,
-                                'custom_time_required': base_service.base_time_required
-                            }]
+                            prof_dict["custom_services"] = [
+                                {
+                                    "id": None,
+                                    "custom_price": base_service.base_price,
+                                    "custom_description": base_service.description,
+                                    "custom_time_required": base_service.base_time_required,
+                                }
+                            ]
                         else:
                             # Process existing custom services
-                            prof_dict['custom_services'] = []
+                            prof_dict["custom_services"] = []
                             for cs in custom_services:
                                 custom_service = {
-                                    'id': cs.id,
-                                    'custom_price': cs.custom_price if cs.custom_price is not None else base_service.base_price,
-                                    'custom_description': cs.custom_description if cs.custom_description else base_service.description,
-                                    'custom_time_required': cs.custom_time_required if cs.custom_time_required else base_service.base_time_required
+                                    "id": cs.id,
+                                    "custom_price": (
+                                        cs.custom_price
+                                        if cs.custom_price is not None
+                                        else base_service.base_price
+                                    ),
+                                    "custom_description": (
+                                        cs.custom_description
+                                        if cs.custom_description
+                                        else base_service.description
+                                    ),
+                                    "custom_time_required": (
+                                        cs.custom_time_required
+                                        if cs.custom_time_required
+                                        else base_service.base_time_required
+                                    ),
                                 }
-                                prof_dict['custom_services'].append(custom_service)
-                        
+                                prof_dict["custom_services"].append(custom_service)
+
                         results.append(prof_dict)
-                    
+
                     return results, 200
                 else:
                     # No service_id, just return professionals with rating filter
                     return marshal(professionals, service_professional_fields)
 
-            return {'message': 'Invalid search parameters'}, 400
+            return {"message": "Invalid search parameters"}, 400
 
         except Exception as e:
             print(f"Search error: {str(e)}")
-            return {'message': str(e)}, 500
-        
+            return {"message": str(e)}, 500
+
+
 class PincodesResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def get(self):
         try:
             # Get unique pincodes from professionals
-            pincodes = db.session.query(
-                ServiceProfessional.pin_code
-            ).distinct().all()
-            
+            pincodes = db.session.query(ServiceProfessional.pin_code).distinct().all()
+
             # Convert tuple of tuples to list
             pincode_list = [pin[0] for pin in pincodes if pin[0]]
             return sorted(pincode_list)
-            
+
         except Exception as e:
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
+
 
 # Register resources with API
-api.add_resource(SearchResource, '/search')
-api.add_resource(PincodesResource, '/pincodes')
+api.add_resource(SearchResource, "/search")
+api.add_resource(PincodesResource, "/pincodes")
 
 
 class SearchAdminResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def get(self):
         try:
             entity = request.args.get("entity")
@@ -1291,8 +1352,14 @@ class SearchAdminResource(Resource):
             # Map entities to their respective search methods and field definitions
             search_mapping = {
                 "service": (self.search_services, service_fields),
-                "professional": (self.search_professionals, service_professional_fields),
-                "service_request": (self.search_service_requests, service_request_fields),
+                "professional": (
+                    self.search_professionals,
+                    service_professional_fields,
+                ),
+                "service_request": (
+                    self.search_service_requests,
+                    service_request_fields,
+                ),
                 "customer": (self.search_customers, customer_fields),
             }
 
@@ -1310,19 +1377,19 @@ class SearchAdminResource(Resource):
         except Exception as e:
             app.logger.error(f"Error in SearchAdminResource: {e}")
             return {"message": str(e)}, 500
-        
-    @auth_required('token')
+
+    @auth_required("token")
     def search_services(self, criteria, query, *_):
-            if not query:
-                return Service.query.all()
-            filters = {
-                "name": Service.name.ilike(f"%{query}%"),
-                "base_price": Service.base_price == query,
-                "description": Service.description.ilike(f"%{query}%"),
-            }
-            return Service.query.filter(filters.get(criteria, True)).all()
-        
-    @auth_required('token')
+        if not query:
+            return Service.query.all()
+        filters = {
+            "name": Service.name.ilike(f"%{query}%"),
+            "base_price": Service.base_price == query,
+            "description": Service.description.ilike(f"%{query}%"),
+        }
+        return Service.query.filter(filters.get(criteria, True)).all()
+
+    @auth_required("token")
     def search_professionals(self, criteria, query, rating_filter, rating_condition):
         filters = []
 
@@ -1335,7 +1402,9 @@ class SearchAdminResource(Resource):
             elif "verified_status" == criteria:
                 filters.append(ServiceProfessional.verified_status.ilike(f"%{query}%"))
             elif "blocked_status" == criteria:
-                filters.append(ServiceProfessional.block_status == (query.lower() == "blocked"))
+                filters.append(
+                    ServiceProfessional.block_status == (query.lower() == "blocked")
+                )
 
         target_rating = None
         if criteria == "average_rating":
@@ -1361,7 +1430,7 @@ class SearchAdminResource(Resource):
                 recent_service_request = (
                     ServiceRequest.query.filter(
                         ServiceRequest.professional_id == professional.id,
-                        ServiceRequest.rating.isnot(None)
+                        ServiceRequest.rating.isnot(None),
                     )
                     .order_by(ServiceRequest.date_of_completion.desc())
                     .first()
@@ -1372,18 +1441,28 @@ class SearchAdminResource(Resource):
         # Apply rating filter if criteria is "average_rating" and target_rating is valid
         if criteria == "average_rating" and target_rating is not None:
             if rating_condition == "high":
-                professionals = [p for p in professionals if p.average_rating is not None and p.average_rating >= target_rating]
+                professionals = [
+                    p
+                    for p in professionals
+                    if p.average_rating is not None
+                    and p.average_rating >= target_rating
+                ]
             else:
-                professionals = [p for p in professionals if p.average_rating is not None and p.average_rating <= target_rating]
+                professionals = [
+                    p
+                    for p in professionals
+                    if p.average_rating is not None
+                    and p.average_rating <= target_rating
+                ]
 
         return professionals
 
-    @auth_required('token')
+    @auth_required("token")
     def search_customers(self, criteria, query, rating_filter, rating_condition):
         base_query = Customer.query
 
         filters = []
-        
+
         if query:
             if criteria == "name":
                 filters.append(Customer.name.ilike(f"%{query}%"))
@@ -1415,7 +1494,7 @@ class SearchAdminResource(Resource):
                 recent_service_request = (
                     ServiceRequest.query.filter(
                         ServiceRequest.customer_id == customer.id,
-                        ServiceRequest.customer_rating.isnot(None)
+                        ServiceRequest.customer_rating.isnot(None),
                     )
                     .order_by(ServiceRequest.date_of_completion.desc())
                     .first()
@@ -1426,19 +1505,34 @@ class SearchAdminResource(Resource):
         # Apply rating filter if criteria is "average_rating" and target_rating is valid
         if criteria == "average_rating" and target_rating is not None:
             if rating_condition == "high":
-                customers = [c for c in customers if c.average_rating is not None and c.average_rating >= target_rating]
+                customers = [
+                    c
+                    for c in customers
+                    if c.average_rating is not None
+                    and c.average_rating >= target_rating
+                ]
             else:
-                customers = [c for c in customers if c.average_rating is not None and c.average_rating <= target_rating]
+                customers = [
+                    c
+                    for c in customers
+                    if c.average_rating is not None
+                    and c.average_rating <= target_rating
+                ]
 
         return customers
 
-   
-    @auth_required('token')
+    @auth_required("token")
     def search_service_requests(self, criteria, query, *_):
-        base_query = ServiceRequest.query \
-            .join(Customer, ServiceRequest.customer_id == Customer.id) \
-            .join(ServiceProfessional, ServiceRequest.professional_id == ServiceProfessional.id) \
+        base_query = (
+            ServiceRequest.query.join(
+                Customer, ServiceRequest.customer_id == Customer.id
+            )
+            .join(
+                ServiceProfessional,
+                ServiceRequest.professional_id == ServiceProfessional.id,
+            )
             .join(Service, ServiceRequest.service_id == Service.id)
+        )
 
         filters = {
             "customer_name": Customer.name.ilike(f"%{query}%"),
@@ -1453,11 +1547,13 @@ class SearchAdminResource(Resource):
         service_requests = base_query.all()
         return marshal(service_requests, service_request_fields)
 
+
 # Register the resource
 api.add_resource(SearchAdminResource, "/search_admin")
 
+
 class SearchProfessionalResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def get(self):
         try:
             professional_id = request.args.get("professional_id")
@@ -1479,17 +1575,21 @@ class SearchProfessionalResource(Resource):
                 return {"message": "Entity parameter is required"}, 400
 
             # Base query: Filter service requests for this professional
-            base_query = ServiceRequest.query.filter(ServiceRequest.professional_id == professional_id)
+            base_query = ServiceRequest.query.filter(
+                ServiceRequest.professional_id == professional_id
+            )
 
             # Apply search filters
             if entity == "pin_code":
                 if not pin_code:
                     return {"message": "Pin Code is required"}, 400
-                base_query = base_query.join(Customer).filter(Customer.pin_code == pin_code)
+                base_query = base_query.join(Customer).filter(
+                    Customer.pin_code == pin_code
+                )
 
             elif entity == "customer_name":
                 base_query = base_query.join(Customer)
-                
+
                 if query:
                     base_query = base_query.filter(Customer.name.ilike(f"%{query}%"))
                     service_requests = base_query.all()
@@ -1502,39 +1602,48 @@ class SearchProfessionalResource(Resource):
                         .all()
                     )
 
-                results = [marshal(sr, service_request_fields) for sr in service_requests]
+                results = [
+                    marshal(sr, service_request_fields) for sr in service_requests
+                ]
                 return jsonify({"results": results})
-
 
             elif entity == "date_of_service":
                 print(date_of_service)
-                print(base_query.filter(ServiceRequest.requested_date == date_of_service))
+                print(
+                    base_query.filter(ServiceRequest.requested_date == date_of_service)
+                )
                 if not date_of_service:
                     return {"message": "Please enter a Date of Service."}, 400
-                base_query = base_query.filter(ServiceRequest.requested_date == date_of_service)
-                
+                base_query = base_query.filter(
+                    ServiceRequest.requested_date == date_of_service
+                )
+
             elif entity == "date_of_closing":
                 print(date_of_closing)
                 if not date_of_closing:
                     return {"message": "Please enter a Date of Closing."}, 400
-                base_query = base_query.filter(func.date(ServiceRequest.date_of_completion) == date_of_closing)
+                base_query = base_query.filter(
+                    func.date(ServiceRequest.date_of_completion) == date_of_closing
+                )
 
             else:
                 return {"message": "Invalid entity type."}, 400
 
             results = base_query.all()
-            return {"results": marshal(results, service_request_fields)}, 200  # Marshal results before returning
+            return {
+                "results": marshal(results, service_request_fields)
+            }, 200  # Marshal results before returning
 
         except Exception as e:
             return {"message": str(e)}, 500
+
 
 # Register the resource
 api.add_resource(SearchProfessionalResource, "/search-professionals")
 
 
-
 class ProfessionalPincodesResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def get(self):
         try:
             professional_id = request.args.get("professional_id")
@@ -1556,53 +1665,66 @@ class ProfessionalPincodesResource(Resource):
                 .all()
             )
 
-
             # Convert the result from [(123456,), (654321,)] to a list [123456, 654321]
-            pincodes_list = [pincode[0] for pincode in pincodes_query  if pincode[0] is not None]
+            pincodes_list = [
+                pincode[0] for pincode in pincodes_query if pincode[0] is not None
+            ]
 
             return jsonify({"pincodes": pincodes_list})
 
         except Exception as e:
             return {"message": str(e)}, 500
 
+
 # Register the API resource
 api.add_resource(ProfessionalPincodesResource, "/forprofessional_pincodes")
 
 
-
 class CustomerServiceHistoryResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def get(self, customer_id):
         try:
             # Fetch service requests for the customer, including service and professional details
-            service_requests = ServiceRequest.query \
-                .join(ServiceProfessional, ServiceRequest.professional_id == ServiceProfessional.id) \
-                .join(Service, ServiceRequest.service_id == Service.id).filter(ServiceRequest.customer_id == customer_id) \
-                .all()   # Join the Service table to get the service name
-                
+            service_requests = (
+                ServiceRequest.query.join(
+                    ServiceProfessional,
+                    ServiceRequest.professional_id == ServiceProfessional.id,
+                )
+                .join(Service, ServiceRequest.service_id == Service.id)
+                .filter(ServiceRequest.customer_id == customer_id)
+                .all()
+            )  # Join the Service table to get the service name
 
             # If no service requests found, return a message
             if not service_requests:
-                return {'message': 'No service history found for this customer.'}, 404
+                return {"message": "No service history found for this customer."}, 404
 
             # Marshal the service requests to return the necessary fields
             result = []
             for request in service_requests:
                 request_data = marshal(request, service_request_fields)
                 # Add professional details to the response
-                request_data['professionalName'] = request.professional.name  # Adjust 'name' to the actual field of professional
-                request_data['professionalId'] = request.professional.id
-                request_data['serviceName'] = request.service.name  # Ensure this field is populated from the Service model
+                request_data["professionalName"] = (
+                    request.professional.name
+                )  # Adjust 'name' to the actual field of professional
+                request_data["professionalId"] = request.professional.id
+                request_data["serviceName"] = (
+                    request.service.name
+                )  # Ensure this field is populated from the Service model
                 result.append(request_data)
 
             return result, 200
 
         except Exception as e:
             print(f"Error fetching service history for customer {customer_id}: {e}")
-            return {'message': str(e)}, 500
+            return {"message": str(e)}, 500
+
 
 # Add the resource to your API
-api.add_resource(CustomerServiceHistoryResource, '/service-history/customer/<int:customer_id>')
+api.add_resource(
+    CustomerServiceHistoryResource, "/service-history/customer/<int:customer_id>"
+)
+
 
 class ServiceRequestReviewResource(Resource):
     def post(self, service_request_id):
@@ -1616,13 +1738,15 @@ class ServiceRequestReviewResource(Resource):
 
         # Find the service request
         service_request = ServiceRequest.query.get(service_request_id)
-        
+
         if not service_request:
             return {"message": "Service request not found."}, 404
 
         # Check if the service is Completed before accepting feedback
         if service_request.service_status != "Completed":
-            return {"message": "Service must be Completed before leaving a review."}, 400
+            return {
+                "message": "Service must be Completed before leaving a review."
+            }, 400
 
         # Update the review in the service request
         service_request.rating = rating
@@ -1635,9 +1759,13 @@ class ServiceRequestReviewResource(Resource):
         except Exception as e:
             db.session.rollback()
             return {"message": str(e)}, 500
-        
-        
-api.add_resource(ServiceRequestReviewResource, '/service_requests/<int:service_request_id>/review')
+
+
+api.add_resource(
+    ServiceRequestReviewResource, "/service_requests/<int:service_request_id>/review"
+)
+
+
 class CustomerServiceSummary(Resource):
     def get(self, user_id):
         try:
@@ -1673,11 +1801,13 @@ class CustomerServiceSummary(Resource):
                 if req.service:
                     category = req.service.name
                     category_counts[category] = category_counts.get(category, 0) + 1
-                
+
                 # Count requests over time (grouped by month)
                 if req.requested_date:
                     request_month = req.requested_date.strftime("%Y-%m")
-                    requests_over_time[request_month] = requests_over_time.get(request_month, 0) + 1
+                    requests_over_time[request_month] = (
+                        requests_over_time.get(request_month, 0) + 1
+                    )
             # Prepare the response data
             response_data = {
                 "status_data": {
@@ -1710,7 +1840,7 @@ api.add_resource(CustomerServiceSummary, "/customer-service-summary/<int:user_id
 
 
 class ProfessionalServiceSummary(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def get(self, professional_id):
         try:
             # Retrieve the professional
@@ -1719,8 +1849,10 @@ class ProfessionalServiceSummary(Resource):
                 return {"error": "Professional not found"}, 404
 
             # Fetch service requests for the professional
-            requests = ServiceRequest.query.filter_by(professional_id=professional.id).all()
-            
+            requests = ServiceRequest.query.filter_by(
+                professional_id=professional.id
+            ).all()
+
             # Initialize counters
             status_counts = {"accepted": 0, "rejected": 0, "Completed": 0, "Pending": 0}
             requests_over_time = {}
@@ -1736,11 +1868,13 @@ class ProfessionalServiceSummary(Resource):
                     status_counts["Completed"] += 1
                 elif req.service_status == "requested":
                     status_counts["Pending"] += 1
-                
+
                 # Count requests over time (grouped by month)
                 if req.requested_date:
                     request_month = req.requested_date.strftime("%Y-%m")
-                    requests_over_time[request_month] = requests_over_time.get(request_month, 0) + 1
+                    requests_over_time[request_month] = (
+                        requests_over_time.get(request_month, 0) + 1
+                    )
 
                 # Track customer ratings over time (average per month)
                 if req.rating is not None:
@@ -1769,11 +1903,16 @@ class ProfessionalServiceSummary(Resource):
                 },
                 "requests_over_time": {
                     "labels": sorted(requests_over_time.keys()),
-                    "values": [requests_over_time[k] for k in sorted(requests_over_time.keys())],
+                    "values": [
+                        requests_over_time[k] for k in sorted(requests_over_time.keys())
+                    ],
                 },
                 "ratings_over_time": {
                     "labels": sorted(avg_ratings_over_time.keys()),
-                    "values": [avg_ratings_over_time[k] for k in sorted(avg_ratings_over_time.keys())],
+                    "values": [
+                        avg_ratings_over_time[k]
+                        for k in sorted(avg_ratings_over_time.keys())
+                    ],
                 },
             }
 
@@ -1782,23 +1921,30 @@ class ProfessionalServiceSummary(Resource):
         except Exception as e:
             return {"error": f"An error occurred: {str(e)}"}, 500
 
+
 # Adding the resource to the API
-api.add_resource(ProfessionalServiceSummary, "/professional-service-summary/<int:professional_id>")
+api.add_resource(
+    ProfessionalServiceSummary, "/professional-service-summary/<int:professional_id>"
+)
 
 from flask import jsonify
 from flask_restful import Resource
 from sqlalchemy import func
 from datetime import datetime, timedelta
 
+
 # 1. Service Requests Overview
 class ServiceRequestStats(Resource):
     def get(self):
         status_counts = (
-            db.session.query(ServiceRequest.service_status, func.count(ServiceRequest.id))
+            db.session.query(
+                ServiceRequest.service_status, func.count(ServiceRequest.id)
+            )
             .group_by(ServiceRequest.service_status)
             .all()
         )
         return jsonify({status: count for status, count in status_counts})
+
 
 # 2. Monthly Trends
 class ServiceRequestTrends(Resource):
@@ -1807,36 +1953,39 @@ class ServiceRequestTrends(Resource):
         trends = (
             db.session.query(
                 func.strftime("%Y-%m", ServiceRequest.date_of_request).label("month"),
-                func.count(ServiceRequest.id).label("count")
+                func.count(ServiceRequest.id).label("count"),
             )
             .filter(ServiceRequest.date_of_request >= six_months_ago)
             .group_by("month")
             .order_by("month")
             .all()
         )
-        return jsonify({
-            "months": [trend.month for trend in trends],
-            "counts": [trend.count for trend in trends]
-        })
+        return jsonify(
+            {
+                "months": [trend.month for trend in trends],
+                "counts": [trend.count for trend in trends],
+            }
+        )
+
 
 # 3. Top Services
 class TopServices(Resource):
     def get(self):
         top_services = (
-            db.session.query(
-                Service.name,
-                func.count(ServiceRequest.id).label("count")
-            )
+            db.session.query(Service.name, func.count(ServiceRequest.id).label("count"))
             .join(ServiceRequest, Service.id == ServiceRequest.service_id)
             .group_by(Service.id)
             .order_by(func.count(ServiceRequest.id).desc())
             .limit(5)
             .all()
         )
-        return jsonify({
-            "services": [service.name for service in top_services],
-            "counts": [service.count for service in top_services]
-        })
+        return jsonify(
+            {
+                "services": [service.name for service in top_services],
+                "counts": [service.count for service in top_services],
+            }
+        )
+
 
 # 4. Professional Ratings
 class ProfessionalRatings(Resource):
@@ -1844,27 +1993,31 @@ class ProfessionalRatings(Resource):
         ratings = (
             db.session.query(
                 ServiceProfessional.name,
-                func.avg(ServiceRequest.rating).label("avg_rating")
+                func.avg(ServiceRequest.rating).label("avg_rating"),
             )
-            .join(ServiceRequest, ServiceProfessional.id == ServiceRequest.professional_id)
+            .join(
+                ServiceRequest, ServiceProfessional.id == ServiceRequest.professional_id
+            )
             .filter(ServiceRequest.rating.isnot(None))
             .group_by(ServiceProfessional.id)
             .order_by(func.avg(ServiceRequest.rating).desc())
             .limit(10)
             .all()
         )
-        return jsonify({
-            "professionals": [rating.name for rating in ratings],
-            "ratings": [float(rating.avg_rating) for rating in ratings]
-        })
+        return jsonify(
+            {
+                "professionals": [rating.name for rating in ratings],
+                "ratings": [float(rating.avg_rating) for rating in ratings],
+            }
+        )
+
 
 # 5. Requests by Pincode
 class ServiceRequestsByPincode(Resource):
     def get(self):
         pincode_data = (
             db.session.query(
-                Customer.pin_code,
-                func.count(ServiceRequest.id).label("count")
+                Customer.pin_code, func.count(ServiceRequest.id).label("count")
             )
             .join(ServiceRequest, Customer.id == ServiceRequest.customer_id)
             .group_by(Customer.pin_code)
@@ -1872,17 +2025,20 @@ class ServiceRequestsByPincode(Resource):
             .limit(10)
             .all()
         )
-        return jsonify({
-            "pincodes": [data.pin_code for data in pincode_data],
-            "counts": [data.count for data in pincode_data]
-        })
+        return jsonify(
+            {
+                "pincodes": [data.pin_code for data in pincode_data],
+                "counts": [data.count for data in pincode_data],
+            }
+        )
+
 
 # Register API Endpoints
-api.add_resource(ServiceRequestStats, '/service_requests/stats')
-api.add_resource(ServiceRequestTrends, '/service_requests/monthly')
-api.add_resource(TopServices, '/services/popular')
-api.add_resource(ProfessionalRatings, '/professionals/ratings')
-api.add_resource(ServiceRequestsByPincode, '/service_requests/pincode_distribution')
+api.add_resource(ServiceRequestStats, "/service_requests/stats")
+api.add_resource(ServiceRequestTrends, "/service_requests/monthly")
+api.add_resource(TopServices, "/services/popular")
+api.add_resource(ProfessionalRatings, "/professionals/ratings")
+api.add_resource(ServiceRequestsByPincode, "/service_requests/pincode_distribution")
 
 
 import cloudinary
@@ -1891,13 +2047,13 @@ import cloudinary.api
 
 
 class ProfessionalProfileResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     @marshal_with(service_professional_fields)
     def get(self, professional_id):
         professional = ServiceProfessional.query.get_or_404(professional_id)
         return professional
 
-    @auth_required('token')
+    @auth_required("token")
     @marshal_with(service_professional_fields)
     def put(self, professional_id):
         professional = ServiceProfessional.query.get_or_404(professional_id)
@@ -1905,27 +2061,29 @@ class ProfessionalProfileResource(Resource):
         # 🛑 Unauthorized access check
         if professional.user_id != current_user.id:
             return {"error": "Unauthorized access"}, 403
-        
+
         # ✅ Handle JSON and form-data requests properly
         data = request.get_json() if request.is_json else request.form
-        profile_pic = request.files.get('profile_pic')
+        profile_pic = request.files.get("profile_pic")
 
         # Debugging: Check available attributes
         print(f"Received Data: {data}")
-        print(f"Before Update - Professional ID: {professional.id}, User ID: {professional.user_id}")
+        print(
+            f"Before Update - Professional ID: {professional.id}, User ID: {professional.user_id}"
+        )
         print(f"Available Attributes: {vars(professional)}")  # Debugging
 
         # If username or email should be updated, update them in the User model
-        if 'username' in data or 'email' in data:
+        if "username" in data or "email" in data:
             user = User.query.get(professional.user_id)  # Fetch related User object
-            if 'username' in data:
-                user.username = data['username']
-            if 'email' in data:
-                user.email = data['email']  # Update User email
-                professional.email = data['email']  # Also update Professional email
-        
+            if "username" in data:
+                user.username = data["username"]
+            if "email" in data:
+                user.email = data["email"]  # Update User email
+                professional.email = data["email"]  # Also update Professional email
+
         # Editable fields in ServiceProfessional model
-        editable_fields = ['name', 'phone_no', 'address', 'pin_code', 'gender']
+        editable_fields = ["name", "phone_no", "address", "pin_code", "gender"]
         for field in editable_fields:
             if field in data and data[field]:  # Ensure data is not empty
                 setattr(professional, field, data[field])
@@ -1933,8 +2091,10 @@ class ProfessionalProfileResource(Resource):
         # Upload new profile picture if provided
         if profile_pic:
             try:
-                upload_result = cloudinary.uploader.upload(profile_pic, folder="professional_profile_pic")
-                professional.profile_picture_url = upload_result['secure_url']
+                upload_result = cloudinary.uploader.upload(
+                    profile_pic, folder="professional_profile_pic"
+                )
+                professional.profile_picture_url = upload_result["secure_url"]
             except Exception as e:
                 print(f"Image upload failed: {str(e)}")
                 return {"error": "Image upload failed", "details": str(e)}, 500
@@ -1947,51 +2107,68 @@ class ProfessionalProfileResource(Resource):
             db.session.rollback()
             print(f"Database commit failed: {str(e)}")
             return {"error": "Database update failed", "details": str(e)}, 500
+
+
 class ProfessionalServicesResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     @marshal_with(professional_service_with_details)
     def get(self, professional_id):
         professional = ServiceProfessional.query.get_or_404(professional_id)
-        
+
         if professional.user_id != current_user.id:
             return {"error": "Unauthorized access"}, 403
 
-        return ProfessionalService.query.filter_by(professional_id=professional_id).all()
+        return ProfessionalService.query.filter_by(
+            professional_id=professional_id
+        ).all()
 
-    @auth_required('token')
+    @auth_required("token")
     @marshal_with(professional_service_with_details)
     def put(self, professional_id):
         professional = ServiceProfessional.query.get_or_404(professional_id)
-        
+
         if professional.user_id != current_user.id:
             return {"error": "Unauthorized access"}, 403
-        
+
         data = request.json
         for service_data in data:
             service = ProfessionalService.query.filter_by(
-                professional_id=professional_id,
-                service_id=service_data['service_id']
+                professional_id=professional_id, service_id=service_data["service_id"]
             ).first()
-            
+
             if service:
-                service.custom_price = service_data.get('custom_price', service.custom_price)
-                service.custom_description = service_data.get('custom_description', service.custom_description)
-                service.custom_time_required = service_data.get('custom_time_required', service.custom_time_required)
+                service.custom_price = service_data.get(
+                    "custom_price", service.custom_price
+                )
+                service.custom_description = service_data.get(
+                    "custom_description", service.custom_description
+                )
+                service.custom_time_required = service_data.get(
+                    "custom_time_required", service.custom_time_required
+                )
 
         db.session.commit()
-        return ProfessionalService.query.filter_by(professional_id=professional_id).all()
-    
-api.add_resource(ProfessionalProfileResource, '/professional/profile/<int:professional_id>')
-api.add_resource(ProfessionalServicesResource, '/professional/profile/<int:professional_id>/services')
+        return ProfessionalService.query.filter_by(
+            professional_id=professional_id
+        ).all()
+
+
+api.add_resource(
+    ProfessionalProfileResource, "/professional/profile/<int:professional_id>"
+)
+api.add_resource(
+    ProfessionalServicesResource, "/professional/profile/<int:professional_id>/services"
+)
+
 
 class CustomerProfileResource(Resource):
-    @auth_required('token')
-    @marshal_with(customer_fields) 
+    @auth_required("token")
+    @marshal_with(customer_fields)
     def get(self, customer_id):
         customer = Customer.query.get_or_404(customer_id)
         return customer
 
-    @auth_required('token')
+    @auth_required("token")
     @marshal_with(customer_fields)
     def put(self, customer_id):
         customer = Customer.query.get_or_404(customer_id)
@@ -2002,24 +2179,26 @@ class CustomerProfileResource(Resource):
 
         # ✅ Handle JSON and form-data requests properly
         data = request.get_json() if request.is_json else request.form
-        profile_pic = request.files.get('profile_pic')
+        profile_pic = request.files.get("profile_pic")
 
         # Debugging: Check available attributes
         print(f"Received Data: {data}")
-        print(f"Before Update - Customer ID: {customer.id}, User ID: {customer.user_id}")
+        print(
+            f"Before Update - Customer ID: {customer.id}, User ID: {customer.user_id}"
+        )
         print(f"Available Attributes: {vars(customer)}")  # Debugging
 
         # If username or email should be updated, update them in the User model
-        if 'username' in data or 'email' in data:
+        if "username" in data or "email" in data:
             user = User.query.get(customer.user_id)  # Fetch related User object
-            if 'username' in data:
-                user.username = data['username']
-            if 'email' in data:
-                user.email = data['email']  # Update User email
-                customer.email = data['email']  # Also update Customer email
+            if "username" in data:
+                user.username = data["username"]
+            if "email" in data:
+                user.email = data["email"]  # Update User email
+                customer.email = data["email"]  # Also update Customer email
 
         # Editable fields in Customer model
-        editable_fields = ['name', 'phone_no', 'address', 'pin_code', 'gender']
+        editable_fields = ["name", "phone_no", "address", "pin_code", "gender"]
         for field in editable_fields:
             if field in data and data[field]:  # Ensure data is not empty
                 setattr(customer, field, data[field])
@@ -2027,8 +2206,10 @@ class CustomerProfileResource(Resource):
         # Upload new profile picture if provided
         if profile_pic:
             try:
-                upload_result = cloudinary.uploader.upload(profile_pic, folder="customer_profile_pic")
-                customer.profile_pic = upload_result['secure_url']
+                upload_result = cloudinary.uploader.upload(
+                    profile_pic, folder="customer_profile_pic"
+                )
+                customer.profile_pic = upload_result["secure_url"]
             except Exception as e:
                 print(f"Image upload failed: {str(e)}")
                 return {"error": "Image upload failed", "details": str(e)}, 500
@@ -2042,33 +2223,38 @@ class CustomerProfileResource(Resource):
             print(f"Database commit failed: {str(e)}")
             return {"error": "Database update failed", "details": str(e)}, 500
 
-api.add_resource(CustomerProfileResource, '/customer/profile/<int:customer_id>')
 
+api.add_resource(CustomerProfileResource, "/customer/profile/<int:customer_id>")
 
 
 from flask_restful import Resource, marshal_with, fields
 from flask_security import auth_required, current_user
 from backend.models import Payment, Wallet
+
 # Define fields for marshalling payments
 payment_fields = {
-    'id': fields.Integer,
-    'amount': fields.Float,
-    'date_of_payment': fields.DateTime,
-    'payment_status': fields.String,
-    'is_transferred': fields.Boolean,
-    'service_name': fields.String(attribute='service_request.service.name'),
-    'professional_name': fields.String(attribute='service_request.professional.name'),
-    'professional_email': fields.String(attribute='service_request.professional.email'),
+    "id": fields.Integer,
+    "amount": fields.Float,
+    "date_of_payment": fields.DateTime,
+    "payment_status": fields.String,
+    "is_transferred": fields.Boolean,
+    "service_name": fields.String(attribute="service_request.service.name"),
+    "professional_name": fields.String(attribute="service_request.professional.name"),
+    "professional_email": fields.String(attribute="service_request.professional.email"),
 }
 
 # Define fields for wallet
-wallet_fields = {
-    'balance': fields.Float
-}
+wallet_fields = {"balance": fields.Float}
+
 
 class CustomerPaymentResource(Resource):
-    @auth_required('token')
-    @marshal_with({'payments': fields.List(fields.Nested(payment_fields)), 'wallet': fields.Nested(wallet_fields)})
+    @auth_required("token")
+    @marshal_with(
+        {
+            "payments": fields.List(fields.Nested(payment_fields)),
+            "wallet": fields.Nested(wallet_fields),
+        }
+    )
     def get(self):
         # Get the customer from the logged-in user
         customer = current_user.customer
@@ -2077,22 +2263,35 @@ class CustomerPaymentResource(Resource):
             return {"error": "Customer profile not found"}, 404
 
         # Fetch all payments associated with the customer
-        payments = Payment.query.filter_by(customer_id=customer.id).order_by(Payment.date_of_payment.desc()).all()
-        
+        payments = (
+            Payment.query.filter_by(customer_id=customer.id)
+            .order_by(Payment.date_of_payment.desc())
+            .all()
+        )
+
         # Fetch wallet balance
         wallet = Wallet.query.filter_by(customer_id=customer.id).first()
 
         return {
             "payments": payments,
-            "wallet": wallet if wallet else {"balance": 0.0}  # Default balance if wallet doesn't exist
+            "wallet": (
+                wallet if wallet else {"balance": 0.0}
+            ),  # Default balance if wallet doesn't exist
         }
 
+
 # Add the resource to the API
-api.add_resource(CustomerPaymentResource, '/customer/payments')
+api.add_resource(CustomerPaymentResource, "/customer/payments")
+
 
 class ProfessionalPaymentResource(Resource):
-    @auth_required('token')
-    @marshal_with({'payments': fields.List(fields.Nested(payment_fields)), 'wallet': fields.Nested(wallet_fields)})
+    @auth_required("token")
+    @marshal_with(
+        {
+            "payments": fields.List(fields.Nested(payment_fields)),
+            "wallet": fields.Nested(wallet_fields),
+        }
+    )
     def get(self):
         # Get the professional from the logged-in user
         professional = current_user.service_professional
@@ -2100,39 +2299,50 @@ class ProfessionalPaymentResource(Resource):
             return {"error": "Professional profile not found"}, 404
 
         # Fetch all payments associated with the professional
-        payments = Payment.query.filter_by(professional_id=professional.id).order_by(Payment.date_of_payment.desc()).all()
-        
+        payments = (
+            Payment.query.filter_by(professional_id=professional.id)
+            .order_by(Payment.date_of_payment.desc())
+            .all()
+        )
+
         # Fetch wallet balance
-        wallet = ProfessionalWallet.query.filter_by(professional_id=professional.id).first()
+        wallet = ProfessionalWallet.query.filter_by(
+            professional_id=professional.id
+        ).first()
 
         return {
             "payments": payments,
-            "wallet": wallet if wallet else {"balance": 0.0}  # Default balance if wallet doesn't exist
+            "wallet": (
+                wallet if wallet else {"balance": 0.0}
+            ),  # Default balance if wallet doesn't exist
         }
 
+
 # Add the resource to the API
-api.add_resource(ProfessionalPaymentResource, '/professional/payments')
+api.add_resource(ProfessionalPaymentResource, "/professional/payments")
 
 
 class CancelServiceResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def post(self, service_request_id):
         try:
             # Fetch the service request
             service_request = ServiceRequest.query.get(service_request_id)
 
             if not service_request:
-                return {'message': 'Service request not found'}, 404
+                return {"message": "Service request not found"}, 404
 
             # Ensure only 'requested' services can be cancelled
             if service_request.service_status != "requested":
-                return {'message': 'Service cannot be cancelled at this stage'}, 400
+                return {"message": "Service cannot be cancelled at this stage"}, 400
 
             # Update service request status
             service_request.service_status = "cancelled"
 
             # Fetch related payment
-            payment = Payment.query.filter_by(service_request_id=service_request_id).first()
+            payment = Payment.query.filter_by(
+                service_request_id=service_request_id
+            ).first()
             if payment:
                 # Mark payment as "Cancelled"
                 payment.payment_status = "Cancelled"
@@ -2140,7 +2350,7 @@ class CancelServiceResource(Resource):
                 # Determine refund amount (custom price if available, otherwise base price)
                 professional_service = ProfessionalService.query.filter_by(
                     professional_id=service_request.professional_id,
-                    service_id=service_request.service_id
+                    service_id=service_request.service_id,
                 ).first()
 
                 refund_amount = (
@@ -2150,227 +2360,169 @@ class CancelServiceResource(Resource):
                 )
 
                 # Update customer's wallet balance
-                wallet = Wallet.query.filter_by(customer_id=service_request.customer_id).first()
+                wallet = Wallet.query.filter_by(
+                    customer_id=service_request.customer_id
+                ).first()
                 if wallet:
                     wallet.balance += refund_amount
                 else:
                     # Create wallet if it doesn't exist
-                    wallet = Wallet(customer_id=service_request.customer_id, balance=refund_amount)
+                    wallet = Wallet(
+                        customer_id=service_request.customer_id, balance=refund_amount
+                    )
                     db.session.add(wallet)
 
             db.session.commit()
-            return {'message': 'Service cancelled and payment refunded'}, 200
+            return {"message": "Service cancelled and payment refunded"}, 200
 
         except Exception as e:
             db.session.rollback()
-            return {'message': str(e)}, 500
-        
-api.add_resource(CancelServiceResource, '/cancel_service/<int:service_request_id>')
+            return {"message": str(e)}, 500
+
+
+api.add_resource(CancelServiceResource, "/cancel_service/<int:service_request_id>")
 
 
 from backend.celery.tasks import create_csv_zip, create_excel
+
+
 class GenerateCSVResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def get(self):
         """
         API endpoint to generate and download the CSV file for the admin.
         """
-        file_type = request.args.get('file_type', 'csv')
+        file_type = request.args.get("file_type", "csv")
 
         try:
-            if file_type == 'csv':
+            if file_type == "csv":
                 result = create_csv_zip.apply_async()
                 zip_content = result.get()
                 content_type = "application/zip"
                 filename = "Admin_Reports.zip"
-            elif file_type == 'xlsx':
+            elif file_type == "xlsx":
                 result = create_excel.apply_async()
                 xlsx_content = result.get()
-                content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                content_type = (
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
                 filename = "Admin_Reports.xlsx"
             else:
-                return {'message': 'Invalid file type'}, 400
+                return {"message": "Invalid file type"}, 400
 
             return Response(
-                zip_content if file_type == 'csv' else xlsx_content,
+                zip_content if file_type == "csv" else xlsx_content,
                 mimetype=content_type,
-                headers={"Content-Disposition": f"attachment; filename={filename}"}
+                headers={"Content-Disposition": f"attachment; filename={filename}"},
             )
 
         except Exception as e:
-            return {'message': f'Error generating report: {str(e)}'}, 500
+            return {"message": f"Error generating report: {str(e)}"}, 500
 
-api.add_resource(GenerateCSVResource, '/admin/generate_report')
+
+api.add_resource(GenerateCSVResource, "/admin/generate_report")
 
 
 from backend.celery.tasks import create_customer_csv_zip, create_customer_excel
 from flask import Response, request
 from flask_restful import Resource
 from flask_security import auth_required, current_user
-from backend.celery.tasks import create_customer_csv_zip, create_customer_excel,create_professional_csv_zip, create_professional_excel
+from backend.celery.tasks import (
+    create_customer_csv_zip,
+    create_customer_excel,
+    create_professional_csv_zip,
+    create_professional_excel,
+)
+
 
 class GenerateCustomerReportResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def get(self):
         """
         API endpoint to generate and download the CSV or Excel report for the customer.
         """
-        file_type = request.args.get('file_type', 'csv')
-        customer_id = request.args.get('customer_id')  # 🔹 Get `customer_id` from query params
+        file_type = request.args.get("file_type", "csv")
+        customer_id = request.args.get(
+            "customer_id"
+        )  # 🔹 Get `customer_id` from query params
         if not customer_id:
-            return {'message': 'Customer ID is required'}, 400  # Handle missing customer ID
-        
+            return {
+                "message": "Customer ID is required"
+            }, 400  # Handle missing customer ID
+
         try:
-            if file_type == 'csv':
+            if file_type == "csv":
                 result = create_customer_csv_zip.apply_async(args=[customer_id])
                 zip_content = result.get()
                 content_type = "application/zip"
                 filename = "Customer_Report.zip"
-            elif file_type == 'xlsx':
+            elif file_type == "xlsx":
                 result = create_customer_excel.apply_async(args=[customer_id])
                 xlsx_content = result.get()
-                content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                content_type = (
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
                 filename = "Customer_Report.xlsx"
             else:
-                return {'message': 'Invalid file type'}, 400
+                return {"message": "Invalid file type"}, 400
 
             return Response(
-                zip_content if file_type == 'csv' else xlsx_content,
+                zip_content if file_type == "csv" else xlsx_content,
                 mimetype=content_type,
-                headers={"Content-Disposition": f"attachment; filename={filename}"}
+                headers={"Content-Disposition": f"attachment; filename={filename}"},
             )
 
         except Exception as e:
-            return {'message': f'Error generating report: {str(e)}'}, 500
+            return {"message": f"Error generating report: {str(e)}"}, 500
+
 
 # Add to API routes
-api.add_resource(GenerateCustomerReportResource, '/customer/generate_report')
+api.add_resource(GenerateCustomerReportResource, "/customer/generate_report")
+
 
 class GenerateProfessionalReportResource(Resource):
-    @auth_required('token')
+    @auth_required("token")
     def get(self):
         """
         API endpoint to generate and download the CSV or Excel report for the professional.
         """
-        file_type = request.args.get('file_type', 'csv')
-        professional_id = request.args.get('professional_id')  # Get `professional_id` from query params
+        file_type = request.args.get("file_type", "csv")
+        professional_id = request.args.get(
+            "professional_id"
+        )  # Get `professional_id` from query params
         if not professional_id:
-            return {'message': 'Professional ID is required'}, 400  # Handle missing professional ID
+            return {
+                "message": "Professional ID is required"
+            }, 400  # Handle missing professional ID
 
         try:
-            if file_type == 'csv':
+            if file_type == "csv":
                 result = create_professional_csv_zip.apply_async(args=[professional_id])
                 zip_content = result.get()
                 content_type = "application/zip"
                 filename = "Professional_Report.zip"
-            elif file_type == 'xlsx':
+            elif file_type == "xlsx":
                 result = create_professional_excel.apply_async(args=[professional_id])
                 xlsx_content = result.get()
-                content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                content_type = (
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
                 filename = "Professional_Report.xlsx"
             else:
-                return {'message': 'Invalid file type'}, 400
+                return {"message": "Invalid file type"}, 400
 
             return Response(
-                zip_content if file_type == 'csv' else xlsx_content,
+                zip_content if file_type == "csv" else xlsx_content,
                 mimetype=content_type,
-                headers={"Content-Disposition": f"attachment; filename={filename}"}
+                headers={"Content-Disposition": f"attachment; filename={filename}"},
             )
 
         except Exception as e:
-            return {'message': f'Error generating report: {str(e)}'}, 500
+            return {"message": f"Error generating report: {str(e)}"}, 500
+
 
 # Add to API routes
-api.add_resource(GenerateProfessionalReportResource, '/professional/generate_report')
-
-# import random
-# import string
-# from datetime import timedelta
-# from flask import request
-# from flask_restful import Resource
-# from backend.models import User, db
-# from backend.celery.tasks import send_forgot_password_email
-# from backend.celery.celery_factory import redis_client
-# from flask_security import hash_password
-
-# def generate_otp():
-#     """Generate a 6-digit random OTP"""
-#     return ''.join(random.choices(string.digits, k=6))
-
-# class ForgotPasswordResource(Resource):
-#     def post(self):
-#         data = request.get_json()
-#         email_or_phone = data.get("email_or_phone")
-
-#         if not email_or_phone:
-#             return {"message": "Email or phone number is required"}, 400
-
-#         user = User.query.filter(
-#             (User.email == email_or_phone) |
-#             (User.customer.has(Customer.phone_no == email_or_phone)) |
-#             (User.service_professional.has(ServiceProfessional.phone_no == email_or_phone))
-#         ).first()
-#         if not user:
-#             return {"message": "User not found"}, 404
-
-#         otp = generate_otp()
-#         redis_key = f"otp:{user.id}"
-#         redis_client.setex(redis_key, timedelta(minutes=10), otp)
-
-#         send_forgot_password_email.delay(user.email, user.username, otp)
-
-#         return {"message": "OTP sent to registered email"}, 200
-
-# class VerifyOTPResource(Resource):
-#     def post(self):
-#         data = request.get_json()
-#         email = data.get("email")
-#         otp = data.get("otp")
-
-#         if not email or not otp:
-#             return {"message": "Email and OTP are required"}, 400
-
-#         user = User.query.filter_by(email=email).first()
-#         if not user:
-#             return {"message": "User not found"}, 404
-
-#         redis_key = f"otp:{user.id}"
-#         stored_otp = redis_client.get(redis_key)
-
-#         if not stored_otp or stored_otp != otp:
-#             return {"message": "Invalid or expired OTP"}, 400
-
-#         return {"message": "OTP verified successfully"}, 200
-
-# class ResetPasswordResource(Resource):
-#     def post(self):
-#         data = request.get_json()
-#         email = data.get("email")
-#         otp = data.get("otp")
-#         new_password = data.get("new_password")
-
-#         if not email or not otp or not new_password:
-#             return {"message": "Email, OTP, and new password are required"}, 400
-
-#         user = User.query.filter_by(email=email).first()
-#         if not user:
-#             return {"message": "User not found"}, 404
-
-#         redis_key = f"otp:{user.id}"
-#         stored_otp = redis_client.get(redis_key)
-
-#         if not stored_otp or stored_otp != otp:
-#             return {"message": "Invalid or expired OTP"}, 400
-
-#         user.password = hash_password(new_password)
-#         db.session.commit()
-
-#         redis_client.delete(redis_key)
-
-#         return {"message": "Password reset successful"}, 200
-# api.add_resource(ForgotPasswordResource, "/forgot-password")
-# api.add_resource(VerifyOTPResource, "/verify-otp")
-# api.add_resource(ResetPasswordResource, "/reset-password")
+api.add_resource(GenerateProfessionalReportResource, "/professional/generate_report")
 
 import random
 import string
@@ -2386,9 +2538,11 @@ from flask_cors import CORS
 # Enable CORS to allow frontend requests
 CORS()
 
+
 def generate_otp():
     """Generate a 6-digit random OTP"""
-    return ''.join(random.choices(string.digits, k=6))
+    return "".join(random.choices(string.digits, k=6))
+
 
 class ForgotPasswordResource(Resource):
     def post(self):
@@ -2400,9 +2554,13 @@ class ForgotPasswordResource(Resource):
             return {"message": "Email or phone number is required"}, 400
 
         user = User.query.filter(
-            (User.email == email_or_phone) |
-            (User.customer.has(Customer.phone_no == email_or_phone)) |
-            (User.service_professional.has(ServiceProfessional.phone_no == email_or_phone))
+            (User.email == email_or_phone)
+            | (User.customer.has(Customer.phone_no == email_or_phone))
+            | (
+                User.service_professional.has(
+                    ServiceProfessional.phone_no == email_or_phone
+                )
+            )
         ).first()
 
         if not user:
@@ -2418,6 +2576,7 @@ class ForgotPasswordResource(Resource):
 
         return {"message": "OTP sent to registered email"}, 200
 
+
 class VerifyOTPResource(Resource):
     def post(self):
         data = request.get_json()
@@ -2430,9 +2589,13 @@ class VerifyOTPResource(Resource):
             return {"message": "Email and OTP are required"}, 400
 
         user = User.query.filter(
-            (User.email == email_or_phone) |
-            (User.customer.has(Customer.phone_no == email_or_phone)) |
-            (User.service_professional.has(ServiceProfessional.phone_no == email_or_phone))
+            (User.email == email_or_phone)
+            | (User.customer.has(Customer.phone_no == email_or_phone))
+            | (
+                User.service_professional.has(
+                    ServiceProfessional.phone_no == email_or_phone
+                )
+            )
         ).first()
 
         if not user:
@@ -2444,13 +2607,18 @@ class VerifyOTPResource(Resource):
 
         if not stored_otp:
             print(f"OTP not found or expired for user {user.email}")
-            return {"message": "Invalid or expired OTP", "success": False}, 200  # ✅ Return 200 instead of 400
+            return {
+                "message": "Invalid or expired OTP",
+                "success": False,
+            }, 200  # ✅ Return 200 instead of 400
 
         stored_otp = stored_otp.strip()  # Decode Redis bytes to string
         attempt_key = f"otp_attempts:{user.id}"  # Ensure attempt key is always defined
 
         if stored_otp != otp.strip():
-            print(f"Invalid OTP entered for {user.email}. Expected: {stored_otp}, Received: {otp}")
+            print(
+                f"Invalid OTP entered for {user.email}. Expected: {stored_otp}, Received: {otp}"
+            )
 
             # Track failed attempts in Redis
             attempts = redis_client.get(attempt_key)
@@ -2458,7 +2626,10 @@ class VerifyOTPResource(Resource):
             attempts += 1
             redis_client.setex(attempt_key, timedelta(minutes=10), attempts)
 
-            return {"message": "Invalid OTP. Please try again.", "success": False}, 200  # ✅ Return 200 instead of 400
+            return {
+                "message": "Invalid OTP. Please try again.",
+                "success": False,
+            }, 200  # ✅ Return 200 instead of 400
 
         print(f"OTP verified successfully for {user.email}")
 
@@ -2468,13 +2639,12 @@ class VerifyOTPResource(Resource):
         return {"message": "OTP verified successfully", "success": True}, 200
 
 
-
 class ResetPasswordResource(Resource):
     def post(self):
         data = request.get_json()
         print("Received request data:", data)
 
-        email_or_phone = data.get("email_or_phone")  
+        email_or_phone = data.get("email_or_phone")
         otp = data.get("otp")
         new_password = data.get("new_password")
 
@@ -2483,9 +2653,13 @@ class ResetPasswordResource(Resource):
 
         # Allow both email and phone for lookup
         user = User.query.filter(
-            (User.email == email_or_phone) |
-            (User.customer.has(Customer.phone_no == email_or_phone)) |
-            (User.service_professional.has(ServiceProfessional.phone_no == email_or_phone))
+            (User.email == email_or_phone)
+            | (User.customer.has(Customer.phone_no == email_or_phone))
+            | (
+                User.service_professional.has(
+                    ServiceProfessional.phone_no == email_or_phone
+                )
+            )
         ).first()
 
         if not user:
@@ -2502,7 +2676,9 @@ class ResetPasswordResource(Resource):
         stored_otp = stored_otp.strip()
 
         if stored_otp != otp.strip():
-            print(f"Invalid OTP entered during password reset for {user.email}. Expected: {stored_otp}, Received: {otp}")
+            print(
+                f"Invalid OTP entered during password reset for {user.email}. Expected: {stored_otp}, Received: {otp}"
+            )
             return {"message": "Invalid OTP"}, 400
 
         try:
@@ -2530,7 +2706,8 @@ api.add_resource(ResetPasswordResource, "/reset-password")
 from flask import jsonify
 from backend.utils import get_professional_count
 
-@app.route("/api/services/<int:service_id>/professional-count", methods=['GET'])
+
+@app.route("/api/services/<int:service_id>/professional-count", methods=["GET"])
 def get_service_professional_count(service_id):
     count = get_professional_count(service_id)
     return jsonify({"count": count})
