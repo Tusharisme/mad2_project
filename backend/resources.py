@@ -34,9 +34,9 @@ customer_fields = {
     "address": fields.String,
     "pin_code": fields.String,
     "phone_no": fields.Integer,
-    "gender": fields.String,
+    "gender": fields.String, 
     "profile_pic": fields.String,
-    "average_rating": fields.Float(attribute=lambda x: x.calculated_average_rating),
+    "average_rating": fields.Float,
     "is_blocked": fields.Boolean,
 }
 # Fields for ProfessionalService
