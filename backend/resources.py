@@ -36,7 +36,7 @@ customer_fields = {
     "phone_no": fields.Integer,
     "gender": fields.String,
     "profile_pic": fields.String,
-    "average_rating": fields.Float,
+    "average_rating": fields.Float(attribute=lambda x: x.calculated_average_rating),
     "is_blocked": fields.Boolean,
 }
 # Fields for ProfessionalService
@@ -61,7 +61,7 @@ service_professional_fields = {
     "verified_status": fields.String,
     "gender": fields.String,
     "profile_picture_url": fields.String,
-    "average_rating": fields.Float,
+    "average_rating": fields.Float(attribute=lambda x: x.calculated_average_rating),
     "document_url": fields.String,
     "block_status": fields.Boolean,
     "custom_services": fields.List(fields.Nested(professional_service_fields)),
@@ -545,6 +545,9 @@ class ProfessionalsByServiceResource(Resource):
             results = []
             for professional in professionals:
                 prof_dict = marshal(professional, service_professional_fields)
+                
+                # Add the service name to each professional for frontend usage
+                prof_dict["service_name"] = base_service.name
 
                 # Get the professional's custom service details
                 custom_services = ProfessionalService.query.filter_by(
@@ -593,7 +596,7 @@ class ProfessionalsByServiceResource(Resource):
         except Exception as e:
             print(f"Error in ProfessionalsByServiceResource: {e}")
             return {"message": str(e)}, 500
-
+        
 
 api.add_resource(
     ProfessionalsByServiceResource, "/professionals-by-service/<int:service_id>"
@@ -943,6 +946,20 @@ class ServiceRequestResource(Resource):
             db.session.add(new_payment)
             db.session.commit()
 
+            # Send email notifications (async)
+            try:
+                from backend.celery.tasks import (
+                    send_booking_confirmation_to_customer,
+                    send_booking_notification_to_professional
+                )
+                
+                # Queue the email tasks
+                send_booking_confirmation_to_customer.delay(new_request.id)
+                send_booking_notification_to_professional.delay(new_request.id)
+            except Exception as e:
+                # Log the error but don't fail the request
+                print(f"Error sending notification emails: {str(e)}")
+
             return {
                 "message": "Service request created successfully",
                 "id": new_request.id,
@@ -955,6 +972,7 @@ class ServiceRequestResource(Resource):
 
 # Add this at the bottom of the file
 api.add_resource(ServiceRequestResource, "/book-service")
+
 from sqlalchemy.orm import joinedload
 
 
@@ -1405,21 +1423,22 @@ class SearchAdminResource(Resource):
                 filters.append(
                     ServiceProfessional.block_status == (query.lower() == "blocked")
                 )
-
-        target_rating = None
-        if criteria == "average_rating":
-            try:
-                target_rating = float(query) if query else None
-            except ValueError:
-                return []
+            # Don't add any filters for average_rating at this point
+            # as ratings may need calculation
+        
+        # If no filters were applied and criteria isn't average_rating, 
+        # we should still filter the results
+        if not filters and criteria != "average_rating" and query:
+            return []  # No matching criteria found
 
         # Apply the filters to the query
-        query = ServiceProfessional.query
+        query_obj = ServiceProfessional.query
         for filter_condition in filters:
-            query = query.filter(filter_condition)
+            query_obj = query_obj.filter(filter_condition)
 
-        professionals = query.all()
+        professionals = query_obj.all()
 
+        # Calculate/update average ratings
         for professional in professionals:
             if professional.average_rating is None:
                 avg_rating = calculate_average_rating_for_professional(professional.id)
@@ -1438,22 +1457,27 @@ class SearchAdminResource(Resource):
                 if recent_service_request:
                     professional.average_rating = recent_service_request.rating
 
-        # Apply rating filter if criteria is "average_rating" and target_rating is valid
-        if criteria == "average_rating" and target_rating is not None:
-            if rating_condition == "high":
-                professionals = [
-                    p
-                    for p in professionals
-                    if p.average_rating is not None
-                    and p.average_rating >= target_rating
-                ]
-            else:
-                professionals = [
-                    p
-                    for p in professionals
-                    if p.average_rating is not None
-                    and p.average_rating <= target_rating
-                ]
+        # Apply rating filter if criteria is "average_rating" and query is provided
+        if criteria == "average_rating" and query:
+            try:
+                target_rating = float(query)
+                
+                if rating_condition == "high":
+                    professionals = [
+                        p
+                        for p in professionals
+                        if p.average_rating is not None
+                        and p.average_rating >= target_rating
+                    ]
+                else:  # "low" or default
+                    professionals = [
+                        p
+                        for p in professionals
+                        if p.average_rating is not None
+                        and p.average_rating <= target_rating
+                    ]
+            except ValueError:
+                return []  # Invalid rating value
 
         return professionals
 

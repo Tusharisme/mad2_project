@@ -1287,3 +1287,48 @@ canvas#trendsChart {
   min-width: 40px; /* Ensures visibility */
   text-align: center;
 }
+
+/* Star rating styles */
+.professional-rating {
+  display: flex;
+  align-items: center;
+}
+
+.stars-container {
+  position: relative;
+  display: inline-block;
+  unicode-bidi: bidi-override;
+  color: #ccc;
+  font-size: 18px;
+  height: 25px;
+  width: 100px;
+  margin-right: 5px;
+}
+
+.stars-filled {
+  color: #ffc107;
+  padding: 0;
+  position: absolute;
+  z-index: 1;
+  display: block;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+}
+
+.stars-empty {
+  padding: 0;
+  display: block;
+  z-index: 0;
+}
+
+.rating-value {
+  margin-left: 5px;
+  font-weight: bold;
+}
+
+
+
+
+
+

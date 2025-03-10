@@ -1,6 +1,9 @@
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from flask_security import UserMixin, RoleMixin
+from sqlalchemy.ext.hybrid import hybrid_property
+from backend.utils import calculate_average_rating_for_professional,calculate_average_rating_for_customer
+
 
 db = SQLAlchemy()
 
@@ -51,6 +54,16 @@ class Customer(db.Model):
 
     # Relationship back to User
     user = db.relationship("User", back_populates="customer")
+    
+    @hybrid_property
+    def calculated_average_rating(self):
+        """Dynamically calculate average rating from service requests"""
+        return calculate_average_rating_for_customer(self.id)
+    
+    def update_average_rating(self):
+        """Updates the stored average_rating field with the calculated value"""
+        self.average_rating = self.calculated_average_rating
+        return self.average_rating
 
 # Service Professional Model
 class ServiceProfessional(db.Model):
@@ -80,6 +93,16 @@ class ServiceProfessional(db.Model):
         back_populates="professional",
         cascade="all, delete-orphan"
     )
+        # Add this property to dynamically calculate rating
+    @hybrid_property
+    def calculated_average_rating(self):
+        """Dynamically calculate average rating from service requests"""
+        return calculate_average_rating_for_professional(self.id)
+    
+    def update_average_rating(self):
+        """Updates the stored average_rating field with the calculated value"""
+        self.average_rating = self.calculated_average_rating
+        return self.average_rating
 
 
 # Service Model

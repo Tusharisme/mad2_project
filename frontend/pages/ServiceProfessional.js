@@ -63,8 +63,24 @@ export default {
         <div class="mb-4 p-3" style="background-color: #f4eae1; border-radius: 10px;">
           <h6 style="color: #8b4513; font-weight: 600;">Service Details</h6>
           <p class="mb-1" v-if="selectedProfessional">Professional: <span class="fw-bold">{{ selectedProfessional.name }}</span></p>
-          <p class="mb-1" v-if="service">Service: <span class="fw-bold">{{ service.title }}</span></p>
-          <p class="mb-1" v-if="selectedProfessional">Amount: <span class="fw-bold text-success">₹{{ selectedProfessional ? selectedProfessional.custom_services[0].custom_price : 0 }}</span></p>
+          
+          <!-- Description instead of service title -->
+          <p class="mb-1" v-if="selectedProfessional && selectedProfessional.custom_services && selectedProfessional.custom_services.length > 0">
+            Description: <span class="fw-bold">{{ selectedProfessional.custom_services[0].custom_description }}</span>
+          </p>
+          
+          <p class="mb-1" v-if="selectedProfessional && selectedProfessional.custom_services && selectedProfessional.custom_services.length > 0">
+            Amount: <span class="fw-bold text-success">₹{{ selectedProfessional.custom_services[0].custom_price }}</span>
+          </p>
+          
+          <!-- Additional information -->
+          <p class="mb-1" v-if="selectedProfessional && selectedProfessional.custom_services && selectedProfessional.custom_services.length > 0">
+            Duration: <span class="fw-bold">{{ selectedProfessional.custom_services[0].custom_time_required }}</span>
+          </p>
+          
+          <p class="mb-1" v-if="selectedProfessional">
+            Experience: <span class="fw-bold">{{ selectedProfessional.experience }} years</span>
+          </p>
         </div>
 
         <!-- Date and time selection -->
@@ -160,6 +176,13 @@ export default {
         }
 
         const data = await response.json();
+
+        // Update service name from backend response
+        // Assuming the first professional's service has the correct service details
+        if (data.length > 0 && data[0].service_name) {
+          this.service.name = data[0].service_name;
+        }
+
         // Filter out any professionals that might be blocked or not approved
         this.professionals = data.filter(
           (prof) => prof.verified_status === "approved" && !prof.block_status

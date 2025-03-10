@@ -149,7 +149,7 @@ export default {
         </div>
       </div>
 
-      <!-- Modal -->
+      <!-- Modal (Fixed positioning now) -->
       <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
         <div class="modal-container">
           <div class="modal-content custom-modal shadow-lg border-0 rounded-3">
@@ -249,6 +249,86 @@ export default {
   },
   created() {
     this.fetchPincodes();
+    // Add style element to the document head
+    const styleElement = document.createElement("style");
+    styleElement.textContent = `
+      /* Modal Styles */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1050;
+      }
+
+      .modal-container {
+        position: relative;
+        width: 90%;
+        max-width: 700px;
+        max-height: 90vh;
+        z-index: 1060;
+      }
+
+      .custom-modal {
+        background-color: #fff;
+        overflow-y: auto;
+        max-height: 90vh;
+      }
+
+      /* When modal is open, prevent body scrolling */
+      body.modal-open {
+        overflow: hidden;
+      }
+
+      /* Additional styling */
+      .hover-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+
+      .hover-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1) !important;
+      }
+
+      .section-divider {
+        height: 3px;
+        width: 60px;
+        background: var(--primary-color);
+        margin-top: 8px;
+      }
+
+      .info-label {
+        font-weight: 600;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #eee;
+      }
+
+      .btn-custom {
+        background-color: var(--primary-color);
+        color: white;
+        border-radius: 5px;
+        font-weight: 500;
+        transition: all 0.3s;
+      }
+
+      .btn-custom:hover {
+        background-color: var(--primary-color-dark, #0056b3);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .info-row {
+        display: flex;
+        align-items: center;
+      }
+    `;
+    document.head.appendChild(styleElement);
   },
   methods: {
     async fetchPincodes() {

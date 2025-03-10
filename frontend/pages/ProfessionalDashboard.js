@@ -147,7 +147,7 @@ export default {
                         <i v-if="request.rating % 1 >= 0.5" class="bi bi-star-half"></i>
                         <i v-for="n in Math.floor(5 - request.rating)" class="bi bi-star"></i>
                       </span>
-                      <span class="ms-1 text-muted">({{ request.rating }})</span>
+                      <span class="ms-1 text-muted">{{ request.rating }}</span>
                     </div>
                     <span v-else class="text-muted fst-italic">Not rated yet</span>
                   </td>
@@ -364,7 +364,7 @@ export default {
             "Your account is blocked by the admin. You cannot receive service requests.";
           return;
         }
-        if (!profData.verified_status === "approved") {
+        if (profData.verified_status !== "approved") {
           this.statusMessage =
             "Your account needs to be verified by the admin before accepting service requests.";
           return;

@@ -118,7 +118,7 @@ export default {
               </td>
               <td>
                 <button v-if="!request.rating" class="btn btn-custom btn-sm" @click="openCompleteServiceModal(request.id)">
-                  Rate Service
+                  Rate Professional
                 </button>
               </td>
             </tr>
