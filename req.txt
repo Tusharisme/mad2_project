@@ -47,3 +47,6 @@ wcwidth==0.2.13
 Werkzeug==3.0.4
 WTForms==3.1.2
 flask-cors==5.0.1
+cloudinary==1.42.2
+setuptools==76.0.0
+pandas==2.2.3
