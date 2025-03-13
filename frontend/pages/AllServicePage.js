@@ -205,7 +205,7 @@ export default {
   },
   methods: {
     formatPrice(price) {
-      return `$${parseFloat(price).toFixed(2)}`;
+      return `₹${parseFloat(price).toFixed(2)}`;
     },
     handleFileUpload(event) {
       const file = event.target.files[0];

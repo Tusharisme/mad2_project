@@ -43,7 +43,7 @@ export default {
           <tbody>
             <tr v-for="professional in professionals" :key="professional.id">
               <td>
-                <a :href="'/professional_details/' + professional.id" class="professional-link">{{ professional.id }}</a>
+                <a>{{ professional.id }}</a>
               </td>
               <td>{{ professional.name }}</td>
               <td>

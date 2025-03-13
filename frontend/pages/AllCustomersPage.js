@@ -125,7 +125,7 @@ export default {
           <tbody>
             <tr v-for="customer in customers" :key="customer.id" style="transition: background-color 0.2s ease;">
               <td style="padding: 12px 10px; vertical-align: middle; border-bottom: 1px solid #e0e0e0; background-color: rgba(255, 255, 255, 0.6);">
-                <a :href="'/customers/' + customer.id" style="color: #3498db; text-decoration: none; font-weight: 500;">{{ customer.id }}</a>
+                <a  style="color: #3498db; text-decoration: none; font-weight: 500;">{{ customer.id }}</a>
               </td>
               <td style="padding: 12px 10px; vertical-align: middle; border-bottom: 1px solid #e0e0e0; background-color: rgba(255, 255, 255, 0.6);">{{ customer.name }}</td>
               <td style="padding: 12px 10px; vertical-align: middle; border-bottom: 1px solid #e0e0e0; background-color: rgba(255, 255, 255, 0.6);">{{ customer.email }}</td>
