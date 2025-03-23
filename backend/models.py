@@ -115,7 +115,8 @@ class Service(db.Model):
     description = db.Column(db.String, nullable=False)
     image_url = db.Column(db.String(500), nullable=True)  # Service image URL
 
-    professional_services = db.relationship("ProfessionalService", back_populates="service")
+    professional_services = db.relationship("ProfessionalService", back_populates="service", cascade="all, delete-orphan")
+    service_requests = db.relationship("ServiceRequest", back_populates="service", cascade="all, delete-orphan")
 
 # ProfessionalService Model
 class ProfessionalService(db.Model):
@@ -143,7 +144,7 @@ class Payment(db.Model):
     payment_status = db.Column(db.String, nullable=False, default="Pending")
     is_transferred = db.Column(db.Boolean, default=False)
 
-    service_request = db.relationship("ServiceRequest", back_populates="payments")
+    service_request = db.relationship("ServiceRequest", back_populates="payments", cascade="all, delete")
     customer = db.relationship("Customer", backref="payments")
     professional = db.relationship("ServiceProfessional", backref="payments")
 
@@ -180,7 +181,7 @@ class ServiceRequest(db.Model):
     requested_date = db.Column(db.Date)
     requested_time = db.Column(db.Time)
 
-    service = db.relationship("Service", backref=db.backref("service_requests", lazy=True))
-    customer = db.relationship("Customer", backref=db.backref("service_requests", lazy=True))
+    service = db.relationship("Service", back_populates="service_requests")
+    customer = db.relationship("Customer", backref=db.backref("service_requests", lazy=True, cascade="all, delete-orphan"))
     professional = db.relationship("ServiceProfessional", backref=db.backref("service_requests", lazy=True, cascade="all, delete-orphan"))
-    payments = db.relationship("Payment", back_populates="service_request", lazy=True)
+    payments = db.relationship("Payment", back_populates="service_request", lazy=True, cascade="all, delete-orphan")

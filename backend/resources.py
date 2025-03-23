@@ -124,9 +124,22 @@ class CustomerResource(Resource):
     def delete(self, customer_id):
         try:
             customer = Customer.query.get_or_404(customer_id)
-            db.session.delete(customer)
+            user = User.query.get(customer.user_id)
+            wallet = Wallet.query.filter_by(customer_id=customer_id).first()
+            if wallet:
+                db.session.delete(wallet)
+             # Perform the delete operation
+            if user:
+                        # Delete the customer first (this will cascade to service_requests)
+                        db.session.delete(customer)
+                        # Then delete the user (which will trigger the customer deletion)
+                        db.session.delete(user)
+            else:
+                        db.session.delete(customer)
+                        
             db.session.commit()
-            return {"message": "Customer deleted successfully"}, 200
+            return {"message": "Customer deleted successfully"}, 200        
+                   
         except Exception as e:
             db.session.rollback()
             return {"message": str(e)}, 500
@@ -147,7 +160,17 @@ class ServiceProfessionalResource(Resource):
     def delete(self, professional_id):
         try:
             professional = ServiceProfessional.query.get_or_404(professional_id)
-            db.session.delete(professional)
+            user = User.query.get(professional.user_id)
+            prof_wallet = ProfessionalWallet.query.filter_by(professional_id=professional_id).first()
+            if prof_wallet:
+                db.session.delete(prof_wallet)
+
+            if user:
+                db.session.delete(professional)
+                db.session.delete(user)
+            else:
+                db.session.delete(professional)
+                
             db.session.commit()
             return {"message": "Service Professional deleted successfully"}, 200
         except Exception as e:
